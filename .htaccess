@@ -1,0 +1,34 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  90mkö# Sitemap.xml - Allow direct file access OR generate via API89)m0bots.txt - Allow direct file access OR generate via API
+  RewriteCond %{REQUEST_URI} ^/robots\.txt$ [NC]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^robots\.txt$ /api/robots.php [L,QSA]
+  
+  # API routes - MUST be before React Router catch-all
+  RewriteCond %{REQUEST_URI} ^/api/ [NC]
+  RewriteRule ^api/ - [L]
+  
+  # React Router - Only for non-file, non-directory requests
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# Set correct MIME type for PDF files
+<IfModule mod_mime.c>
+  AddType application/pdf .pdf
+</IfModule>
+
+# Set PHP upload limits (if allowed) - Increased for large PDF catalogs
+php_value upload_max_filesize 100M
+php_value post_max_size 100M
+php_value max_execution_time 300
+php_value max_input_time 300
+

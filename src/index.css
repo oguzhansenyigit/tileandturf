@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* Prevent scroll jump on page refresh */
+body {
+  scroll-padding-top: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.slick-dots li button:before {
+  color: #527068 !important;
+}
+
+.slick-dots li.slick-active button:before {
+  color: #527068 !important;
+}
+
+/* Hide default slick arrows when custom arrows are used */
+.slick-prev,
+.slick-next {
+  display: none !important;
+}
+
+/* Hide dots for related products carousel */
+.slick-dots {
+  display: none !important;
+}
+
+/* Page Transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+/* Pulse Green Animation for Datasheet and Brochure buttons */
+@keyframes pulse-green {
+  0%, 100% {
+    background-color: #f9fafb; /* gray-50 */
+    box-shadow: 0 0 0 0 rgba(58, 146, 92, 0);
+  }
+  50% {
+    background-color: #f0fdf4; /* green-50 */
+    box-shadow: 0 0 0 4px rgba(58, 146, 92, 0.1);
+  }
+}
+
+.animate-pulse-green {
+  animation: pulse-green 2s ease-in-out infinite;
+}
+
+/* Pulse Primary Animation for Calculator button */
+@keyframes pulse-primary {
+  0%, 100% {
+    background: linear-gradient(to right, rgba(82, 112, 104, 0.1), rgba(82, 112, 104, 0.05));
+    box-shadow: 0 0 0 0 rgba(82, 112, 104, 0);
+  }
+  50% {
+    background: linear-gradient(to right, rgba(82, 112, 104, 0.15), rgba(82, 112, 104, 0.1));
+    box-shadow: 0 0 0 4px rgba(82, 112, 104, 0.15);
+  }
+}
+
+.animate-pulse-primary {
+  animation: pulse-primary 2s ease-in-out infinite;
+}
+
+/* Logo Pulse Animation for Page Transitions */
+@keyframes logoPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Loading Progress Bar Animation */
+@keyframes loadingProgress {
+  0% {
+    width: 0%;
+    transform: translateX(0);
+  }
+  50% {
+    width: 70%;
+    transform: translateX(0);
+  }
+  100% {
+    width: 100%;
+    transform: translateX(100%);
+  }
+}
+
