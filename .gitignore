@@ -33,3 +33,6 @@ yarn-error.log*
 /vendor/
 api/config.php
 
+# Markdown (repo'da tutmuyoruz)
+*.md
+
