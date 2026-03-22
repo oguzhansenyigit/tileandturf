@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { createSlug } from '../../utils/slug'
 
+const getOptionKey = (option) =>
+  typeof option === 'string' ? option : (option?.label ?? '')
+const getOptionLabel = (option) =>
+  typeof option === 'string' ? option : (option?.label ?? '')
+
 const ProductsManagement = () => {
   const [products, setProducts] = useState([])
   const [allProducts, setAllProducts] = useState([]) // Store all products for filtering
@@ -1363,11 +1368,11 @@ const ProductsManagement = () => {
                                   if (!newVariationsData[variationId]) {
                                     newVariationsData[variationId] = {}
                                   }
-                                  // Select all options
                                   availableOptions.forEach(option => {
-                                    if (!newVariationsData[variationId][option]) {
-                                      newVariationsData[variationId][option] = {
-                                        value: option,
+                                    const key = getOptionKey(option)
+                                    if (!newVariationsData[variationId][key]) {
+                                      newVariationsData[variationId][key] = {
+                                        value: getOptionLabel(option),
                                         price: null
                                       }
                                     }
@@ -1408,7 +1413,7 @@ const ProductsManagement = () => {
                                     <th className="px-3 py-2 text-left font-semibold text-gray-700 w-12">
                                       <input
                                         type="checkbox"
-                                        checked={availableOptions.every(option => variationOptions[option] !== undefined)}
+                                        checked={availableOptions.every(option => variationOptions[getOptionKey(option)] !== undefined)}
                                         onChange={(e) => {
                                           const newVariationsData = { ...variationData }
                                           if (!newVariationsData[variationId]) {
@@ -1417,16 +1422,17 @@ const ProductsManagement = () => {
                                           
                                           if (e.target.checked) {
                                             availableOptions.forEach(option => {
-                                              if (!newVariationsData[variationId][option]) {
-                                                newVariationsData[variationId][option] = {
-                                                  value: option,
+                                              const key = getOptionKey(option)
+                                              if (!newVariationsData[variationId][key]) {
+                                                newVariationsData[variationId][key] = {
+                                                  value: getOptionLabel(option),
                                                   price: null
                                                 }
                                               }
                                             })
                                           } else {
                                             availableOptions.forEach(option => {
-                                              delete newVariationsData[variationId][option]
+                                              delete newVariationsData[variationId][getOptionKey(option)]
                                             })
                                           }
                                           
@@ -1441,13 +1447,23 @@ const ProductsManagement = () => {
                                     <th className="px-3 py-2 text-left font-semibold text-gray-700">Option</th>
                                     <th className="px-3 py-2 text-left font-semibold text-gray-700">Display Value</th>
                                     <th className="px-3 py-2 text-left font-semibold text-gray-700">Price</th>
+                                    {variation.type === 'color' && (
+                                      <>
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Extra section</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[9rem]">Section title</th>
+                                      </>
+                                    )}
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                   {availableOptions.map((option, idx) => {
-                                    const isOptionSelected = variationOptions[option] !== undefined
-                                    const optionPrice = variationOptions[option]?.price ?? ''
-                                    const optionValue = variationOptions[option]?.value || option
+                                    const key = getOptionKey(option)
+                                    const label = getOptionLabel(option)
+                                    const isOptionSelected = variationOptions[key] !== undefined
+                                    const optionPrice = variationOptions[key]?.price ?? ''
+                                    const optionValue = variationOptions[key]?.value || label
+                                    const displayGroup = variationOptions[key]?.displayGroup
+                                    const inExtraSection = Boolean(displayGroup && String(displayGroup).trim() !== '')
                                   
                                   return (
                                       <tr key={idx} className={`hover:bg-gray-50 ${isOptionSelected ? 'bg-blue-50/30' : ''}`}>
@@ -1462,12 +1478,12 @@ const ProductsManagement = () => {
                                             }
                                             
                                             if (e.target.checked) {
-                                              newVariationsData[variationId][option] = {
-                                                value: option,
+                                              newVariationsData[variationId][key] = {
+                                                value: label,
                                                 price: null
                                               }
                                             } else {
-                                              delete newVariationsData[variationId][option]
+                                              delete newVariationsData[variationId][key]
                                             }
                                             
                                             setProductForm({
@@ -1478,7 +1494,7 @@ const ProductsManagement = () => {
                                           className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                                         />
                                         </td>
-                                        <td className="px-3 py-2 font-medium text-gray-700">{option}</td>
+                                        <td className="px-3 py-2 font-medium text-gray-700">{label}</td>
                                         <td className="px-3 py-2">
                                           {isOptionSelected ? (
                                             <input
@@ -1489,17 +1505,17 @@ const ProductsManagement = () => {
                                                 if (!newVariationsData[variationId]) {
                                                   newVariationsData[variationId] = {}
                                                 }
-                                                if (!newVariationsData[variationId][option]) {
-                                                  newVariationsData[variationId][option] = {}
+                                                if (!newVariationsData[variationId][key]) {
+                                                  newVariationsData[variationId][key] = {}
                                                 }
-                                                newVariationsData[variationId][option].value = e.target.value || option
+                                                newVariationsData[variationId][key].value = e.target.value || label
                                                 setProductForm({
                                                   ...productForm,
                                                   variations: JSON.stringify(newVariationsData)
                                                 })
                                               }}
                                               className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                                              placeholder={option}
+                                              placeholder={label}
                                             />
                                           ) : (
                                             <span className="text-gray-400 text-xs">—</span>
@@ -1516,10 +1532,10 @@ const ProductsManagement = () => {
                                                 if (!newVariationsData[variationId]) {
                                                   newVariationsData[variationId] = {}
                                                 }
-                                                if (!newVariationsData[variationId][option]) {
-                                                  newVariationsData[variationId][option] = {}
+                                                if (!newVariationsData[variationId][key]) {
+                                                  newVariationsData[variationId][key] = {}
                                                 }
-                                                newVariationsData[variationId][option].price = e.target.value ? parseFloat(e.target.value) : null
+                                                newVariationsData[variationId][key].price = e.target.value ? parseFloat(e.target.value) : null
                                                 setProductForm({
                                                   ...productForm,
                                                   variations: JSON.stringify(newVariationsData)
@@ -1532,6 +1548,76 @@ const ProductsManagement = () => {
                                             <span className="text-gray-400 text-xs">—</span>
                                           )}
                                         </td>
+                                        {variation.type === 'color' && (
+                                          <>
+                                            <td className="px-3 py-2 align-top">
+                                              {isOptionSelected ? (
+                                                <label className="inline-flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                                                  <input
+                                                    type="checkbox"
+                                                    checked={inExtraSection}
+                                                    onChange={(e) => {
+                                                      const newVariationsData = { ...variationData }
+                                                      if (!newVariationsData[variationId]) {
+                                                        newVariationsData[variationId] = {}
+                                                      }
+                                                      const cur = newVariationsData[variationId][key] || { value: label, price: null }
+                                                      if (e.target.checked) {
+                                                        newVariationsData[variationId][key] = {
+                                                          ...cur,
+                                                          displayGroup:
+                                                            (cur.displayGroup && String(cur.displayGroup).trim()) ||
+                                                            'Wood Planks Color',
+                                                        }
+                                                      } else {
+                                                        const { displayGroup: _dg, ...rest } = cur
+                                                        newVariationsData[variationId][key] = rest
+                                                      }
+                                                      setProductForm({
+                                                        ...productForm,
+                                                        variations: JSON.stringify(newVariationsData),
+                                                      })
+                                                    }}
+                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                  />
+                                                  <span className="whitespace-nowrap">2nd block</span>
+                                                </label>
+                                              ) : (
+                                                <span className="text-gray-400 text-xs">—</span>
+                                              )}
+                                            </td>
+                                            <td className="px-3 py-2 align-top">
+                                              {isOptionSelected && inExtraSection ? (
+                                                <input
+                                                  type="text"
+                                                  value={String(displayGroup || '')}
+                                                  onChange={(e) => {
+                                                    const newVariationsData = { ...variationData }
+                                                    if (!newVariationsData[variationId]) {
+                                                      newVariationsData[variationId] = {}
+                                                    }
+                                                    if (!newVariationsData[variationId][key]) {
+                                                      newVariationsData[variationId][key] = {}
+                                                    }
+                                                    const t = e.target.value.trim()
+                                                    newVariationsData[variationId][key] = {
+                                                      ...newVariationsData[variationId][key],
+                                                      displayGroup: t || 'Wood Planks Color',
+                                                    }
+                                                    setProductForm({
+                                                      ...productForm,
+                                                      variations: JSON.stringify(newVariationsData),
+                                                    })
+                                                  }}
+                                                  className="w-full min-w-[8rem] border border-gray-300 rounded px-2 py-1 text-sm"
+                                                  placeholder="Wood Planks Color"
+                                                />
+                                              ) : (
+                                                <span className="text-gray-400 text-xs">—</span>
+                                              )}
+                                            </td>
+                                          </>
+                                        )}
                                       </tr>
                                     )
                                   })}
@@ -1540,6 +1626,12 @@ const ProductsManagement = () => {
                                           </div>
                             <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
                               <strong>Tip:</strong> Check the box to enable an option, then enter display value (optional) and price adjustment (optional).
+                              {variation.type === 'color' && (
+                                <>
+                                  {' '}
+                                  For colors: use <strong>Extra section</strong> to show swatches under a custom heading on the product page (after the main color row). Size labels (12×48, etc.) are set in the variation library per swatch.
+                                </>
+                              )}
                                         </div>
                                     </div>
                                 )}

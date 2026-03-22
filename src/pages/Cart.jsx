@@ -36,9 +36,9 @@ const Cart = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            {cart.map((item) => (
+            {cart.map((item, idx) => (
               <div
-                key={item.id}
+                key={item.id + '-' + (item.selectedSize || '') + '-' + JSON.stringify(item.selectedVariations || {}) + '-' + (item.sqft || 0) + '-' + (item.length || 0) + '-' + idx}
                 className="border-b border-gray-200 p-6 flex flex-col md:flex-row gap-4"
               >
                 <Link to={getProductUrl(item)} className="flex-shrink-0">
@@ -54,6 +54,9 @@ const Cart = () => {
                       {item.name}
                     </h3>
                   </Link>
+                  {item.selectedSize && (
+                    <p className="text-sm text-gray-600 mb-2">Size: {item.selectedSize}</p>
+                  )}
                   <p className="text-2xl font-bold text-primary mb-4">
                     {(() => {
                       let unitPrice = parseFloat(item.price) || 0
@@ -178,7 +181,7 @@ const Cart = () => {
                     })()}
                   </p>
                   <button
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(item.id, item)}
                     className="text-red-600 hover:text-red-800 font-semibold"
                   >
                     Remove

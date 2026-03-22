@@ -130,8 +130,8 @@ const CartSidebar = ({ isOpen, onClose }) => {
             </div>
           ) : (
             <div className="p-4 space-y-3">
-              {cart.map((item) => (
-                <div key={item.id} className="flex gap-3 pb-3 border-b border-gray-100">
+              {cart.map((item, idx) => (
+                <div key={item.id + '-' + (item.selectedSize || '') + '-' + JSON.stringify(item.selectedVariations || {}) + '-' + (item.sqft || 0) + '-' + (item.length || 0) + '-' + idx} className="flex gap-3 pb-3 border-b border-gray-100">
                   <Link to={getProductUrl(item)} onClick={onClose} className="flex-shrink-0">
                     <img
                       src={item.image || '/slider.webp'}
@@ -145,6 +145,9 @@ const CartSidebar = ({ isOpen, onClose }) => {
                         {item.name}
                       </h3>
                     </Link>
+                    {item.selectedSize && (
+                      <p className="text-xs text-gray-500 mb-1">Size: {item.selectedSize}</p>
+                    )}
                     <p className="text-primary font-bold text-base mb-2">
                       {(() => {
                         let displayPrice = parseFloat(item.price) || 0
@@ -250,7 +253,7 @@ const CartSidebar = ({ isOpen, onClose }) => {
                         </div>
                       )}
                       <button
-                        onClick={() => removeFromCart(item.id)}
+                        onClick={() => removeFromCart(item.id, item)}
                         className="text-red-600 hover:text-red-800 text-xs font-semibold"
                       >
                         Remove

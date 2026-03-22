@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
@@ -34,6 +34,25 @@ const PrevArrow = ({ onClick }) => (
   </button>
 )
 
+const getOptionKey = (option) =>
+  typeof option === 'string' ? option : (option?.label ?? '')
+const getOptionLabel = (option) =>
+  typeof option === 'string' ? option : (option?.label ?? '')
+const getOptionSizeLabels = (option) =>
+  typeof option === 'object' && option !== null && Array.isArray(option.sizes)
+    ? option.sizes.filter((s) => typeof s === 'string' && s.trim() !== '')
+    : []
+
+/** Only one color for the product: clear every color-type slot, then set primary → key */
+const applySingleColorChoice = (prev, key, colorVariationIds, primaryId) => {
+  const next = { ...prev }
+  for (const cid of colorVariationIds) {
+    delete next[cid]
+  }
+  next[primaryId] = key
+  return next
+}
+
 const ProductDetail = () => {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -47,6 +66,8 @@ const ProductDetail = () => {
   const [variations, setVariations] = useState([])
   const [selectedVariations, setSelectedVariations] = useState({})
   const [variationPrices, setVariationPrices] = useState({})
+  /** Dimension for selected color when 2+ sizes (e.g. 24x24, 24x48) */
+  const [selectedSize, setSelectedSize] = useState('')
   const [productVariations, setProductVariations] = useState([])
   const [selectedProductVariation, setSelectedProductVariation] = useState(null)
   const [sqft, setSqft] = useState('')
@@ -54,6 +75,8 @@ const ProductDetail = () => {
   const [lengthInput, setLengthInput] = useState('')
   const [productDetailPromo, setProductDetailPromo] = useState(null)
   const [categoryPDFs, setCategoryPDFs] = useState({ datasheet_pdf: null, brochure_pdf: null })
+  const [variationLibraryLoading, setVariationLibraryLoading] = useState(false)
+  const productFetchGen = useRef(0)
   const { addToCart, addToCartSilently } = useCart()
   const { catalogMode, whatsappNumber, phoneNumber } = useSettings()
 
@@ -61,6 +84,38 @@ const ProductDetail = () => {
     fetchProduct()
     fetchProductDetailPromo()
   }, [slug])
+
+  const selectedColorRoomScene = useMemo(() => {
+    if (!product || !variations.length) return null
+    const cv = variations.find((v) => v.type === 'color')
+    if (!cv) return null
+    const key = selectedVariations[cv.id]
+    if (!key) return null
+    const opts = Array.isArray(cv.options) ? cv.options : []
+    const opt = opts.find((o) => String(getOptionKey(o)) === String(key))
+    if (opt && typeof opt === 'object' && opt.roomScene) return opt.roomScene
+    return null
+  }, [product, variations, selectedVariations])
+
+  useEffect(() => {
+    if (!product) return
+    const cv = variations.find((v) => v.type === 'color')
+    if (!cv) return
+    const key = selectedVariations[cv.id]
+    if (!key) {
+      setSelectedImage(product.image || '/slider.webp')
+      return
+    }
+    const opts = Array.isArray(cv.options) ? cv.options : []
+    const opt = opts.find((o) => String(getOptionKey(o)) === String(key))
+    const room = opt && typeof opt === 'object' && opt.roomScene
+    if (room) {
+      setSelectedImage(room)
+      setShowComparison(false)
+    } else {
+      setSelectedImage(product.image || '/slider.webp')
+    }
+  }, [selectedVariations, variations, product])
 
   const fetchProductDetailPromo = async () => {
     try {
@@ -86,10 +141,12 @@ const ProductDetail = () => {
   const fetchProduct = async () => {
     if (!slug) {
       setLoading(false)
+      setVariationLibraryLoading(false)
       return
     }
     
     setLoading(true)
+    const fetchGen = ++productFetchGen.current
     try {
       // Try to fetch by slug first, fallback to id if slug is numeric
       const isNumeric = /^\d+$/.test(slug)
@@ -115,8 +172,8 @@ const ProductDetail = () => {
       
       // Check if product was found
       if (!productData || productData === null || (typeof productData === 'object' && Object.keys(productData).length === 0)) {
-        // Product not found
         setLoading(false)
+        setVariationLibraryLoading(false)
         navigate('/products', { replace: true })
         return
       }
@@ -130,108 +187,20 @@ const ProductDetail = () => {
         }
       }
       setProduct(productData)
-      // Reset length and sqft inputs when product changes
       setLength(null)
       setLengthInput('')
       setSqft('')
-      
-      // Fetch category PDFs if product has category
-      if (productData.category_id) {
-        try {
-          const categoryResponse = await axios.get(`/api/categories.php`)
-          const categories = Array.isArray(categoryResponse.data) ? categoryResponse.data : []
-          const category = categories.find(cat => cat.id == productData.category_id || cat.id === parseInt(productData.category_id))
-          if (category) {
-            setCategoryPDFs({
-              datasheet_pdf: category.datasheet_pdf || null,
-              brochure_pdf: category.brochure_pdf || null
-            })
-          } else {
-            setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
-          }
-        } catch (error) {
-          // Error fetching category PDFs
-          setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
-        }
-      } else {
-        setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
-      }
-      
-      // Parse variations
-      if (productData.variations) {
-        try {
-          const variationsData = typeof productData.variations === 'string' 
-            ? JSON.parse(productData.variations) 
-            : productData.variations
-          
-          if (variationsData && Object.keys(variationsData).length > 0) {
-            // Extract product variations (if any)
-            const productVariations = variationsData.product_variations || []
-            if (productVariations.length > 0) {
-              // Fetch product details for product variations
-              const productVariationPromises = productVariations.map(pv => 
-                axios.get(`/api/products.php?id=${pv.product_id}`).catch(() => null)
-              )
-              const productVariationResults = await Promise.all(productVariationPromises)
-              const productVariationProducts = productVariationResults
-                .filter(result => result && result.data && !Array.isArray(result.data))
-                .map((result) => result.data)
-              
-              setProductVariations(productVariationProducts)
-            } else {
-              setProductVariations([])
-            }
-            
-            // Fetch variation details (exclude product_variations key)
-            const variationIds = Object.keys(variationsData)
-              .filter(id => id !== 'product_variations')
-              .map(id => parseInt(id))
-              .filter(id => !isNaN(id))
-            
-            if (variationIds.length > 0) {
-              const variationPromises = variationIds.map(variationId => 
-                axios.get(`/api/admin/variations.php?id=${variationId}`).catch(() => null)
-              )
-              const variationResults = await Promise.all(variationPromises)
-              const allVariations = variationResults
-                .filter(result => result && result.data)
-                .map(result => result.data)
-              
-              // Filter variations: only show variations that have at least one option with price set
-              const validVariations = allVariations.filter(variation => {
-                const variationId = variation.id
-                const variationOptions = variationsData[variationId] || {}
-                
-                // Check if at least one option has a price set
-                const hasPriceSetOption = Object.keys(variationOptions).some(option => {
-                  const optionData = variationOptions[option]
-                  return optionData && optionData.price !== null && optionData.price !== undefined && optionData.price !== ''
-                })
-                
-                return hasPriceSetOption
-              })
-              
-              setVariations(validVariations)
-            } else {
-              setVariations([])
-            }
-            
-            // Initialize with empty selections - user must select variations manually
-            setSelectedVariations({})
-            setVariationPrices({})
-          }
-        } catch (e) {
-          // Error parsing variations
-          setVariations([])
-          setProductVariations([])
-        }
-      }
-      
-      // Parse gallery images
+      setSelectedVariations({})
+      setVariationPrices({})
+      setSelectedProductVariation(null)
+      setVariations([])
+      setProductVariations([])
+      setRelatedProducts([])
+
       if (productData.gallery_images) {
         try {
-          const gallery = typeof productData.gallery_images === 'string' 
-            ? JSON.parse(productData.gallery_images) 
+          const gallery = typeof productData.gallery_images === 'string'
+            ? JSON.parse(productData.gallery_images)
             : productData.gallery_images
           setGalleryImages(Array.isArray(gallery) ? gallery : [])
         } catch (e) {
@@ -240,43 +209,159 @@ const ProductDetail = () => {
       } else {
         setGalleryImages([])
       }
-      
-      // Set initial selected image
+
       setSelectedImage(productData.image || '/slider.webp')
-      
-      // Fetch related products
+      setLoading(false)
+
+      let variationsData = null
+      try {
+        if (productData.variations) {
+          variationsData =
+            typeof productData.variations === 'string'
+              ? JSON.parse(productData.variations)
+              : productData.variations
+        }
+      } catch (e) {
+        variationsData = null
+      }
+
+      const variationIds =
+        variationsData && typeof variationsData === 'object'
+          ? Object.keys(variationsData)
+              .filter((id) => id !== 'product_variations')
+              .map((id) => parseInt(id, 10))
+              .filter((id) => !isNaN(id))
+          : []
+
+      if (variationIds.length > 0) {
+        setVariationLibraryLoading(true)
+      } else {
+        setVariationLibraryLoading(false)
+      }
+
+      const parallel = []
+
+      if (productData.category_id) {
+        parallel.push(
+          axios
+            .get(`/api/categories.php`)
+            .then((categoryResponse) => {
+              if (fetchGen !== productFetchGen.current) return
+              const categories = Array.isArray(categoryResponse.data) ? categoryResponse.data : []
+              const category = categories.find(
+                (cat) =>
+                  cat.id == productData.category_id ||
+                  cat.id === parseInt(productData.category_id, 10)
+              )
+              if (category) {
+                setCategoryPDFs({
+                  datasheet_pdf: category.datasheet_pdf || null,
+                  brochure_pdf: category.brochure_pdf || null,
+                })
+              } else {
+                setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
+              }
+            })
+            .catch(() => {
+              if (fetchGen !== productFetchGen.current) return
+              setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
+            })
+        )
+      } else {
+        setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
+      }
+
+      const productVariationsList =
+        variationsData && Array.isArray(variationsData.product_variations)
+          ? variationsData.product_variations
+          : []
+
+      if (productVariationsList.length > 0) {
+        parallel.push(
+          Promise.all(
+            productVariationsList.map((pv) =>
+              axios.get(`/api/products.php?id=${pv.product_id}`).catch(() => null)
+            )
+          )
+            .then((results) => {
+              if (fetchGen !== productFetchGen.current) return
+              const productVariationProducts = results
+                .filter((result) => result && result.data && !Array.isArray(result.data))
+                .map((result) => result.data)
+              setProductVariations(productVariationProducts)
+            })
+            .catch(() => {
+              if (fetchGen !== productFetchGen.current) return
+              setProductVariations([])
+            })
+        )
+      }
+
+      if (variationIds.length > 0) {
+        parallel.push(
+          axios
+            .get('/api/admin/variations.php')
+            .then((res) => {
+              if (fetchGen !== productFetchGen.current) return
+              const allList = Array.isArray(res.data) ? res.data : []
+              const byId = new Map(allList.map((v) => [Number(v.id), v]))
+              const allVariations = variationIds.map((id) => byId.get(id)).filter(Boolean)
+              const validVariations = allVariations.filter((variation) => {
+                const vid = variation.id
+                const opts = variationsData[vid] ?? variationsData[String(vid)] ?? {}
+                return Object.keys(opts).length > 0
+              })
+              setVariations(validVariations)
+            })
+            .catch(() => {
+              if (fetchGen !== productFetchGen.current) return
+              setVariations([])
+            })
+            .finally(() => {
+              if (fetchGen !== productFetchGen.current) return
+              setVariationLibraryLoading(false)
+            })
+        )
+      }
+
       if (productData.related_products) {
         try {
-          const relatedIds = typeof productData.related_products === 'string' 
-            ? JSON.parse(productData.related_products) 
-            : productData.related_products
-          
+          const relatedIds =
+            typeof productData.related_products === 'string'
+              ? JSON.parse(productData.related_products)
+              : productData.related_products
           if (Array.isArray(relatedIds) && relatedIds.length > 0) {
-            const relatedPromises = relatedIds.map(relatedId => 
-              axios.get(`/api/products.php?id=${relatedId}`).catch(() => null)
+            parallel.push(
+              Promise.all(
+                relatedIds.map((relatedId) =>
+                  axios.get(`/api/products.php?id=${relatedId}`).catch(() => null)
+                )
+              )
+                .then((relatedResults) => {
+                  if (fetchGen !== productFetchGen.current) return
+                  const validProducts = relatedResults
+                    .filter((result) => result && result.data)
+                    .map((result) => result.data)
+                  setRelatedProducts(validProducts)
+                })
+                .catch(() => {
+                  if (fetchGen !== productFetchGen.current) return
+                  setRelatedProducts([])
+                })
             )
-            const relatedResults = await Promise.all(relatedPromises)
-            const validProducts = relatedResults
-              .filter(result => result && result.data)
-              .map(result => result.data)
-            setRelatedProducts(validProducts)
           }
         } catch (e) {
-          // Error parsing related products
           setRelatedProducts([])
         }
       }
-      
-      // Set loading to false after all data is loaded
-      setLoading(false)
+
+      await Promise.all(parallel)
     } catch (error) {
-      // Error fetching product
       setLoading(false)
-      // If product not found or error, redirect to products page
+      setVariationLibraryLoading(false)
       if (error.response && (error.response.status === 404 || error.response.status === 400)) {
         navigate('/products', { replace: true })
       } else {
-        // For other errors, still set loading to false
         setProduct(null)
         setLoading(false)
       }
@@ -310,17 +395,29 @@ const ProductDetail = () => {
   }
 
   const isVariationSelectionComplete = () => {
-    // If product variations exist, one must be selected
     if (productVariations.length > 0) {
       return selectedProductVariation !== null
     }
-    
-    // If standard variations exist, check if at least one is selected
-    if (variations.length === 0) return true // No variations required
-    
-    // Check if at least one variation has a selection
-    return Object.keys(selectedVariations).length > 0 && 
-           variations.some(variation => selectedVariations[variation.id])
+
+    if (variations.length === 0) return true
+
+    const primaryColor = variations.find((v) => v.type === 'color')
+    const primaryColorId = primaryColor?.id
+
+    const allVariationsSelected = variations.every((v) => {
+      if (v.type === 'color') {
+        return primaryColorId != null && Boolean(selectedVariations[primaryColorId])
+      }
+      return Boolean(selectedVariations[v.id])
+    })
+    if (!allVariationsSelected) return false
+
+    const key = selectedVariations[primaryColorId]
+    const selOpt = primaryColor?.options?.find((o) => String(getOptionKey(o)) === String(key))
+    const sizeOptions = getOptionSizeLabels(selOpt || {})
+    if (sizeOptions.length >= 2 && !selectedSize) return false
+
+    return true
   }
 
   const handleAddToCart = () => {
@@ -329,7 +426,7 @@ const ProductDetail = () => {
       if (productVariations.length > 0) {
         alert('Please select a product option before adding to cart.')
       } else {
-        alert('Please select at least one variation before adding to cart.')
+        alert('Please select all required options before adding to cart.')
       }
       return
     }
@@ -488,6 +585,7 @@ const ProductDetail = () => {
       price: priceForCart, // Unit price (e.g., 25$ for length 10)
       selectedVariations: selectedVariations,
       variationPrices: variationPrices,
+      selectedSize: selectedSize || undefined,
       length: isLengthEnabled ? lengthValue : null, // Use lengthValue instead of length
       // For sqft products, quantity is always 1 (sqft value itself is the quantity)
       // For length products, use the selected quantity
@@ -526,7 +624,7 @@ const ProductDetail = () => {
       if (productVariations.length > 0) {
         alert('Please select a product option before proceeding to checkout.')
       } else {
-        alert('Please select at least one variation before proceeding to checkout.')
+        alert('Please select all required options before proceeding to checkout.')
       }
       return
     }
@@ -725,6 +823,7 @@ const ProductDetail = () => {
       price: priceForCart, // Unit price, not total
       selectedVariations: selectedVariations,
       variationPrices: variationPrices,
+      selectedSize: selectedSize || undefined,
       length: isLengthEnabled ? length : null,
       quantity: isSqftEnabled ? 1 : quantity, // For sqft products, quantity is always 1
       // Make sure length_prices is included in cart item
@@ -843,6 +942,7 @@ const ProductDetail = () => {
   }
 
   return (
+    <>
     <div className="container mx-auto px-4 py-12">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         <div>
@@ -900,10 +1000,34 @@ const ProductDetail = () => {
           )}
 
           {/* Gallery Images */}
-          {(galleryImages.length > 0 || product.image) && (
+          {(galleryImages.length > 0 || product.image || selectedColorRoomScene) && (
             <div className="mt-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Gallery</h3>
               <div className="grid grid-cols-4 gap-2">
+                {selectedColorRoomScene && (
+                  <button
+                    type="button"
+                    title="Room scene (selected color)"
+                    onClick={() => {
+                      setSelectedImage(selectedColorRoomScene)
+                      setShowComparison(false)
+                    }}
+                    className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+                      selectedImage === selectedColorRoomScene && !showComparison
+                        ? 'border-primary ring-2 ring-primary'
+                        : 'border-amber-300 hover:border-amber-400'
+                    }`}
+                  >
+                    <img
+                      src={selectedColorRoomScene}
+                      alt=""
+                      className="w-full h-20 object-cover"
+                    />
+                    <span className="absolute bottom-0 left-0 right-0 bg-black/55 text-white text-[9px] py-0.5 text-center">
+                      Room
+                    </span>
+                  </button>
+                )}
                 {product.image && (
                   <button
                     onClick={() => {
@@ -1209,219 +1333,381 @@ const ProductDetail = () => {
           )}
 
           {/* Standard Variations */}
-          {variations.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-base font-semibold text-gray-800">Select Variations *</h3>
-                {Object.keys(selectedVariations).length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedVariations({})
-                      setVariationPrices({})
-                    }}
-                    className="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1.5 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    Clear Options
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {variations.map((variation) => {
-                  const variationId = variation.id
-                  const selectedOption = selectedVariations[variationId]
-                  const productVariations = product.variations ? (typeof product.variations === 'string' ? JSON.parse(product.variations) : product.variations) : {}
-                  const variationOptions = productVariations[variationId] || {}
-                  
-                  const selectedPrice = variationPrices[variationId] || 0
-                  
-                  return (
-                    <div key={variation.id} className={`border-2 rounded-lg p-3 transition-colors ${
-                      selectedOption ? 'border-primary bg-primary/5' : 'border-red-300 bg-red-50'
-                    }`}>
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-gray-700 font-semibold text-sm">
-                            {variation.name} <span className="text-red-500">*</span>
-                          </label>
-                          {selectedOption && selectedPrice > 0 ? (
-                            <span className="text-xs font-semibold text-primary">
-                              +${selectedPrice.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-red-500 font-medium">
-                              Required
-                            </span>
-                          )}
-                        </div>
-                        {variation.type && (
-                          <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px]">
-                            {variation.type}
-                          </span>
-                        )}
-                      </div>
-                      {/* Filter options: only show options that have price set */}
-                      {(() => {
-                        const availableOptions = Array.isArray(variation.options) 
-                          ? variation.options.filter(option => {
-                              const optionData = variationOptions[option] || {}
-                              return optionData && optionData.price !== null && optionData.price !== undefined && optionData.price !== ''
-                            })
-                          : []
-                        
-                        // Show selectbox if more than 7 options, otherwise show buttons
-                        return availableOptions.length > 7 ? (
+          {product && (variations.length > 0 || variationLibraryLoading) && (() => {
+            let productVariationsJson = {}
+            try {
+              productVariationsJson = product.variations
+                ? typeof product.variations === 'string'
+                  ? JSON.parse(product.variations)
+                  : product.variations
+                : {}
+            } catch {
+              productVariationsJson = {}
+            }
+            const colorVars = variations.filter((v) => v.type === 'color')
+            const otherVars = variations.filter((v) => v.type !== 'color')
+            const colorVariationIds = colorVars.map((v) => v.id)
+            const primaryColor = colorVars[0]
+            const primaryColorId = primaryColor?.id
+
+            const renderNonColorVariation = (variation) => {
+              const variationId = variation.id
+              const selectedOption = selectedVariations[variationId]
+              const variationOptions = productVariationsJson[variationId] || {}
+              const selectedPrice = variationPrices[variationId] || 0
+              const needsThisOption = !selectedOption
+
+              return (
+                <div
+                  key={variation.id}
+                  className={`rounded-lg border p-4 ${
+                    selectedOption
+                      ? 'border-primary bg-primary/5'
+                      : 'border-red-200 bg-red-50/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="font-semibold text-gray-800 text-sm">
+                      {variation.name}
+                      {needsThisOption && <span className="text-red-500 ml-0.5">*</span>}
+                    </span>
+                    {selectedOption ? (
+                      selectedPrice > 0 ? (
+                        <span className="text-xs font-semibold text-primary">+${selectedPrice.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-xs text-gray-500">Base</span>
+                      )
+                    ) : (
+                      <span className="text-xs text-red-500">Required</span>
+                    )}
+                  </div>
+                  {(() => {
+                    const availableOptions = Array.isArray(variation.options)
+                      ? variation.options.filter((option) => variationOptions[getOptionKey(option)] !== undefined)
+                      : []
+
+                    if (availableOptions.length > 7) {
+                      return (
                         <select
                           value={selectedOption || ''}
                           onChange={(e) => {
                             const option = e.target.value
-                            // If empty option is selected, deselect the variation
                             if (!option || option === '') {
-                              const newVariations = { ...selectedVariations }
-                              delete newVariations[variationId]
-                              setSelectedVariations(newVariations)
-                              
-                              const newPrices = { ...variationPrices }
-                              delete newPrices[variationId]
-                              setVariationPrices(newPrices)
-                            } else {
-                              // Select this option (only one option per variation type)
-                              setSelectedVariations({
-                                ...selectedVariations,
-                                [variationId]: option
+                              setSelectedVariations((prev) => {
+                                const nv = { ...prev }
+                                delete nv[variationId]
+                                return nv
                               })
+                              setVariationPrices((prev) => {
+                                const np = { ...prev }
+                                delete np[variationId]
+                                return np
+                              })
+                            } else {
                               const optionData = variationOptions[option] || {}
                               const optionPrice = optionData.price || 0
-                              if (optionPrice) {
-                                setVariationPrices({
-                                  ...variationPrices,
-                                  [variationId]: optionPrice
-                                })
-                              } else {
-                                const newPrices = { ...variationPrices }
-                                delete newPrices[variationId]
-                                setVariationPrices(newPrices)
-                              }
+                              setSelectedVariations((prev) => ({ ...prev, [variationId]: option }))
+                              setVariationPrices((prev) => {
+                                const np = { ...prev }
+                                if (optionPrice) np[variationId] = optionPrice
+                                else delete np[variationId]
+                                return np
+                              })
                             }
                           }}
-                          className={`w-full border-2 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 ${
-                            selectedOption 
-                              ? 'border-primary focus:border-primary focus:ring-primary text-gray-800' 
-                              : 'border-red-300 focus:border-red-500 focus:ring-red-500 text-gray-800'
-                          }`}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                         >
                           <option value="">Select {variation.name}</option>
                           {availableOptions.map((option, idx) => {
-                            const optionData = variationOptions[option] || {}
+                            const key = getOptionKey(option)
+                            const optionData = variationOptions[key] || {}
                             const optionPrice = optionData.price || 0
+                            const label = optionData.value || getOptionLabel(option)
                             return (
-                              <option key={idx} value={option}>
-                                {optionData.value || option} {optionPrice > 0 ? `(+$${parseFloat(optionPrice).toFixed(2)})` : ''}
+                              <option key={idx} value={key}>
+                                {label} {optionPrice > 0 ? `(+$${parseFloat(optionPrice).toFixed(2)})` : ''}
                               </option>
                             )
                           })}
                         </select>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                          {availableOptions.map((option, idx) => {
-                            const optionData = variationOptions[option] || {}
-                            const optionPrice = optionData.price || 0
-                            const isSelected = selectedOption === option
-                            
-                            return (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  // Use functional update to check current state and toggle both states
-                                  setSelectedVariations(prevVariations => {
-                                    const currentlySelected = prevVariations[variationId]
-                                    const isCurrentlySelected = String(currentlySelected) === String(option)
-                                    
-                                    // Update prices based on the same check
-                                    setVariationPrices(prevPrices => {
-                                      if (isCurrentlySelected) {
-                                        // Deselecting: Remove price
-                                        return Object.keys(prevPrices).reduce((acc, key) => {
-                                          if (String(key) !== String(variationId)) {
-                                            acc[key] = prevPrices[key]
-                                          }
-                                          return acc
-                                        }, {})
-                                      } else {
-                                        // Selecting: Add or update price
-                                        if (optionPrice) {
-                                          return {
-                                            ...prevPrices,
-                                            [variationId]: optionPrice
-                                          }
-                                        } else {
-                                          // Remove price if no price for this option
-                                          return Object.keys(prevPrices).reduce((acc, key) => {
-                                            if (String(key) !== String(variationId)) {
-                                              acc[key] = prevPrices[key]
-                                            }
-                                            return acc
-                                          }, {})
-                                        }
-                                      }
-                                    })
-                                    
-                                    // Return updated variations
-                                    if (isCurrentlySelected) {
-                                      // Deselect: Remove this variation
-                                      return Object.keys(prevVariations).reduce((acc, key) => {
-                                        if (String(key) !== String(variationId)) {
-                                          acc[key] = prevVariations[key]
-                                        }
-                                        return acc
-                                      }, {})
-                                    } else {
-                                      // Select: Add this variation
-                                      return {
-                                        ...prevVariations,
-                                        [variationId]: option
-                                      }
-                                    }
-                                  })
-                                }}
-                                className={`px-2 py-1.5 rounded-lg border-2 transition-all text-xs font-medium text-center ${
-                                  isSelected
-                                    ? 'border-primary bg-primary text-white shadow-md'
-                                    : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                                }`}
-                              >
-                                <div className="flex flex-col items-center">
-                                  <span className="leading-tight">{optionData.value || option}</span>
-                                  {optionPrice > 0 && (
-                                    <span className="text-[10px] opacity-90 mt-0.5">
-                                      (+${parseFloat(optionPrice).toFixed(2)})
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
                       )
-                      })()}
-                      {selectedOption && (
-                        <p className="text-[10px] text-gray-500 mt-1.5">
-                          Selected: <span className="font-semibold text-gray-800">{selectedOption}</span>
-                          {selectedPrice > 0 && (
-                            <span className="ml-1 text-primary font-semibold">+${selectedPrice.toFixed(2)}</span>
-                          )}
-                        </p>
-                      )}
-                      {!selectedOption && (
-                        <p className="text-[10px] text-red-600 mt-1.5">Please select</p>
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-2">
+                        {availableOptions.map((option, idx) => {
+                          const key = getOptionKey(option)
+                          const optionData = variationOptions[key] || {}
+                          const optionPrice = optionData.price || 0
+                          const isSelected = selectedOption === key
+                          const label = optionData.value || getOptionLabel(option)
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setSelectedVariations((prev) => {
+                                  const cur = prev[variationId]
+                                  const turningOff = String(cur) === String(key)
+                                  setVariationPrices((prevP) => {
+                                    const n = { ...prevP }
+                                    if (turningOff) {
+                                      delete n[variationId]
+                                    } else if (optionPrice) {
+                                      n[variationId] = optionPrice
+                                    } else {
+                                      delete n[variationId]
+                                    }
+                                    return n
+                                  })
+                                  if (turningOff) {
+                                    const n = { ...prev }
+                                    delete n[variationId]
+                                    return n
+                                  }
+                                  return { ...prev, [variationId]: key }
+                                })
+                              }}
+                              className={`min-w-[5.5rem] px-3 py-2 rounded-md border text-xs font-medium text-center transition-colors ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 text-gray-900'
+                                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                              }`}
+                            >
+                              {label}
+                              {optionPrice > 0 && (
+                                <span className="block text-[10px] mt-0.5 opacity-90">
+                                  +${parseFloat(optionPrice).toFixed(2)}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
+                  {needsThisOption && (
+                    <p className="text-xs text-red-600 mt-2">Please select</p>
+                  )}
+                </div>
+              )
+            }
+
+            const primaryOpts = primaryColor
+              ? productVariationsJson[primaryColorId] || {}
+              : {}
+            const colorAvailableOptions = primaryColor && Array.isArray(primaryColor.options)
+              ? primaryColor.options.filter((option) => primaryOpts[getOptionKey(option)] !== undefined)
+              : []
+            const mainColorOptions = []
+            const extraSectionOrder = []
+            const extraSectionMap = new Map()
+            for (const option of colorAvailableOptions) {
+              const k = getOptionKey(option)
+              const dg = String(primaryOpts[k]?.displayGroup || '').trim()
+              if (dg) {
+                if (!extraSectionMap.has(dg)) {
+                  extraSectionMap.set(dg, [])
+                  extraSectionOrder.push(dg)
+                }
+                extraSectionMap.get(dg).push(option)
+              } else {
+                mainColorOptions.push(option)
+              }
+            }
+            const extraColorSections = extraSectionOrder.map((title) => ({
+              title,
+              options: extraSectionMap.get(title) || [],
+            }))
+            const selectedColorOption = primaryColorId != null ? selectedVariations[primaryColorId] : null
+            const selectedColorPrice = primaryColorId != null ? variationPrices[primaryColorId] || 0 : 0
+            const needsColor = primaryColor && !selectedColorOption
+
+            return (
+              <div className="mb-6 space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-gray-800">Options</h3>
+                    {variationLibraryLoading && (
+                      <span className="text-xs text-gray-500">Loading…</span>
+                    )}
+                  </div>
+                  {Object.keys(selectedVariations).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedVariations({})
+                        setVariationPrices({})
+                      }}
+                      className="text-sm text-gray-600 hover:text-gray-900 underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {primaryColor && (
+                  <div
+                    className={`rounded-lg border p-4 ${
+                      selectedColorOption
+                        ? 'border-primary bg-white'
+                        : 'border-red-200 bg-red-50/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-semibold text-gray-800 text-sm">
+                        {primaryColor.name}
+                        {needsColor && <span className="text-red-500 ml-0.5">*</span>}
+                      </span>
+                      {selectedColorOption ? (
+                        selectedColorPrice > 0 ? (
+                          <span className="text-xs font-semibold text-primary">+${selectedColorPrice.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-xs text-gray-500">Base</span>
+                        )
+                      ) : (
+                        <span className="text-xs text-red-500">Required</span>
                       )}
                     </div>
-                  )
-                })}
+
+                    {(() => {
+                      const renderColorSwatch = (option, listKey) => {
+                        const key = getOptionKey(option)
+                        const optionData = primaryOpts[key] || {}
+                        const optionPrice = optionData.price || 0
+                        const isSelected = selectedColorOption === key
+                        const label = optionData.value || getOptionLabel(option)
+                        const optionImage = typeof option === 'object' && option?.image
+                        const sizeLabels = getOptionSizeLabels(option)
+                        return (
+                          <button
+                            key={`${listKey}-${key}`}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              setSelectedSize('')
+                              setSelectedVariations((prev) => {
+                                const cur = prev[primaryColorId]
+                                const turningOff = String(cur) === String(key)
+                                setVariationPrices((prevP) => {
+                                  const n = { ...prevP }
+                                  colorVariationIds.forEach((id) => delete n[id])
+                                  if (!turningOff && optionPrice) n[primaryColorId] = optionPrice
+                                  return n
+                                })
+                                if (turningOff) {
+                                  const n = { ...prev }
+                                  colorVariationIds.forEach((id) => delete n[id])
+                                  return n
+                                }
+                                return applySingleColorChoice(prev, key, colorVariationIds, primaryColorId)
+                              })
+                            }}
+                            className={`flex flex-col w-[calc(50%-0.375rem)] sm:w-36 shrink-0 text-left rounded-md border overflow-hidden transition-colors ${
+                              isSelected
+                                ? 'border-primary ring-1 ring-primary bg-primary/5'
+                                : 'border-gray-200 bg-white hover:border-gray-400'
+                            }`}
+                          >
+                            {optionImage ? (
+                              <div className="w-full h-24 sm:h-28 bg-gray-100 border-b border-gray-200">
+                                <img
+                                  src={optionImage}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                  draggable={false}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-16 sm:h-20 bg-gray-50 border-b border-gray-200 flex items-center justify-center text-xs text-gray-500 px-1 text-center">
+                                {label}
+                              </div>
+                            )}
+                            <div className="p-2">
+                              {optionImage && (
+                                <span className="text-xs font-medium text-gray-900 leading-tight block">{label}</span>
+                              )}
+                              {sizeLabels.length > 0 && (
+                                <span className="text-[10px] text-gray-500 mt-1 block leading-snug">
+                                  {sizeLabels.join(' · ')}
+                                </span>
+                              )}
+                              {optionPrice > 0 && (
+                                <span className="text-[10px] text-gray-600 mt-0.5 block">
+                                  +${parseFloat(optionPrice).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        )
+                      }
+                      return (
+                        <>
+                          {mainColorOptions.length > 0 && (
+                            <div className="flex flex-wrap gap-3">
+                              {mainColorOptions.map((option) => renderColorSwatch(option, 'main'))}
+                            </div>
+                          )}
+                          {extraColorSections.map(({ title, options: secOpts }, si) => (
+                            <div
+                              key={`extra-${title}-${si}`}
+                              className={`${si > 0 || mainColorOptions.length > 0 ? 'mt-5 pt-4 border-t border-gray-200' : ''}`}
+                            >
+                              <h4 className="text-sm font-semibold text-gray-900 mb-3">{title}</h4>
+                              <div className="flex flex-wrap gap-3">{secOpts.map((o) => renderColorSwatch(o, `g${si}`))}</div>
+                            </div>
+                          ))}
+                        </>
+                      )
+                    })()}
+                    {(() => {
+                      const selOpt = primaryColor.options?.find((o) => String(getOptionKey(o)) === String(selectedColorOption))
+                      const sizeOptions = getOptionSizeLabels(selOpt || [])
+                      const needsSize = sizeOptions.length >= 2 && !selectedSize
+                      return (
+                        <>
+                          {selectedColorOption && sizeOptions.length >= 2 && (
+                            <div className="mt-4 pt-3 border-t border-gray-200">
+                              <p className="text-xs font-semibold text-gray-700 mb-2">Size</p>
+                              <div className="flex flex-wrap gap-3">
+                                {sizeOptions.map((sz) => (
+                                  <label
+                                    key={sz}
+                                    className="inline-flex items-center gap-2 cursor-pointer text-sm text-gray-800"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="color-size"
+                                      checked={selectedSize === sz}
+                                      onChange={() => setSelectedSize(sz)}
+                                      className="text-primary border-gray-300 focus:ring-primary"
+                                    />
+                                    {sz}
+                                  </label>
+                                ))}
+                              </div>
+                              {needsSize && (
+                                <p className="text-xs text-red-600 mt-1.5">Please select a size</p>
+                              )}
+                            </div>
+                          )}
+                          {needsColor && (
+                            <p className="text-xs text-red-600 mt-2">Please select a color</p>
+                          )}
+                        </>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {otherVars.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {otherVars.map((v) => renderNonColorVariation(v))}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Sqft Input - Only show if sqft_enabled */}
           {(product.sqft_enabled == 1 || product.sqft_enabled === true) && (
@@ -1636,7 +1922,7 @@ const ProductDetail = () => {
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }`}
               >
-                {isVariationSelectionComplete() ? 'Add to Cart' : 'Please Select at Least One Variation'}
+                {isVariationSelectionComplete() ? 'Add to Cart' : 'Please Select All Options'}
               </button>
             )}
 
@@ -1740,6 +2026,7 @@ const ProductDetail = () => {
         </div>
       )}
     </div>
+    </>
   )
 }
 

@@ -44,9 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $productPrice = floatval($item['price']);
             $quantity = intval($item['quantity']);
             $subtotal = $productPrice * $quantity;
+            $selectedSize = isset($item['selectedSize']) && $item['selectedSize'] !== ''
+                ? "'" . $conn->real_escape_string($item['selectedSize']) . "'" : 'NULL';
             
-            $itemSql = "INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal) 
-                       VALUES ($orderId, " . ($productId ? $productId : 'NULL') . ", '$productName', $productPrice, $quantity, $subtotal)";
+            $itemSql = "INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal, selected_size) 
+                       VALUES ($orderId, " . ($productId ? $productId : 'NULL') . ", '$productName', $productPrice, $quantity, $subtotal, $selectedSize)";
             $conn->query($itemSql);
         }
         
@@ -57,7 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'name' => $item['name'],
                 'quantity' => $item['quantity'],
                 'price' => $item['price'],
-                'subtotal' => floatval($item['price']) * intval($item['quantity'])
+                'subtotal' => floatval($item['price']) * intval($item['quantity']),
+                'selectedSize' => $item['selectedSize'] ?? null
             ];
         }
         
@@ -67,8 +70,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Build items table HTML
         $itemsHtml = '';
         foreach ($orderItems as $item) {
+            $nameCell = htmlspecialchars($item['name']);
+            if (!empty($item['selectedSize'])) {
+                $nameCell .= ' <span style="color:#6b7280;font-size:0.9em">(' . htmlspecialchars($item['selectedSize']) . ')</span>';
+            }
             $itemsHtml .= '<tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . htmlspecialchars($item['name']) . '</td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . $nameCell . '</td>
                 <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $item['quantity'] . '</td>
                 <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$' . number_format($item['price'], 2) . '</td>
                 <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$' . number_format($item['subtotal'], 2) . '</td>
@@ -219,7 +226,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $adminBody .= "$country\n\n";
         $adminBody .= "ORDER ITEMS:\n";
         foreach ($orderItems as $item) {
-            $adminBody .= "- {$item['name']} x{$item['quantity']} @ $" . number_format($item['price'], 2) . " = $" . number_format($item['subtotal'], 2) . "\n";
+            $line = "- {$item['name']} x{$item['quantity']} @ $" . number_format($item['price'], 2) . " = $" . number_format($item['subtotal'], 2]);
+            if (!empty($item['selectedSize'])) {
+                $line .= " [Size: {$item['selectedSize']}]";
+            }
+            $adminBody .= $line . "\n";
         }
         $adminBody .= "\nTOTAL: $" . number_format($total, 2) . "\n";
         $adminBody .= "PAYMENT METHOD: $paymentMethod\n\n";

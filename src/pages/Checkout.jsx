@@ -319,7 +319,7 @@ const Checkout = () => {
           <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Summary</h2>
             <div className="space-y-4 mb-6">
-              {cart.map((item) => {
+              {cart.map((item, idx) => {
                 let unitPrice = parseFloat(item.price) || 0
                 let totalPrice = 0
                 
@@ -361,12 +361,13 @@ const Checkout = () => {
                 }
                 
                 return (
-                  <div key={item.id} className="flex justify-between text-sm">
+                  <div key={item.id + '-' + (item.selectedSize || '') + '-' + JSON.stringify(item.selectedVariations || {}) + '-' + idx} className="flex justify-between text-sm">
                     <span className="text-gray-600">
                       {item.name}
                       {!item.sqft && ` x${item.quantity}`}
                       {item.length && ` (length: ${item.length})`}
                       {item.sqft && ` (${item.sqft} sqft)`}
+                      {item.selectedSize && ` · ${item.selectedSize}`}
                     </span>
                     <span className="font-semibold">
                       ${totalPrice.toFixed(2)}

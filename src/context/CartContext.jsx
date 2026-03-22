@@ -36,35 +36,36 @@ export const CartProvider = ({ children }) => {
       // Otherwise, check for existing items by id
       if (product.sqft || product.length) {
         // Create unique key for sqft/length products
-        // Include length_prices in the key to differentiate items with different pricing
-        const uniqueKey = `${product.id}_${product.sqft || 0}_${product.length || 0}_${JSON.stringify(product.selectedVariations || {})}_${product.length_prices ? JSON.stringify(product.length_prices) : ''}`
+        const selSize = product.selectedSize || ''
+        const uniqueKey = `${product.id}_${product.sqft || 0}_${product.length || 0}_${JSON.stringify(product.selectedVariations || {})}_${selSize}_${product.length_prices ? JSON.stringify(product.length_prices) : ''}`
         const existingItem = prevCart.find(item => {
-          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
+          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.selectedSize || ''}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
           return itemKey === uniqueKey
         })
         
         if (existingItem) {
-          // If same item exists, add to quantity (user wants more of the same)
           const newQuantity = (parseInt(existingItem.quantity) || 1) + productQuantity
           return prevCart.map(item => {
-            const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
+            const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.selectedSize || ''}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
             return itemKey === uniqueKey
               ? { ...item, quantity: newQuantity }
               : item
           })
         }
-        // Add new item with the quantity specified by user
         return [...prevCart, { ...product, quantity: productQuantity }]
       } else {
-        // Standard product matching
-        const existingItem = prevCart.find(item => 
-          item.id === product.id && 
-          JSON.stringify(item.selectedVariations || {}) === JSON.stringify(product.selectedVariations || {})
+        // Standard product matching (id + variations + selectedSize)
+        const selSize = product.selectedSize || ''
+        const existingItem = prevCart.find(item =>
+          item.id === product.id &&
+          JSON.stringify(item.selectedVariations || {}) === JSON.stringify(product.selectedVariations || {}) &&
+          (item.selectedSize || '') === selSize
         )
         if (existingItem) {
           return prevCart.map(item =>
-            item.id === product.id && 
-            JSON.stringify(item.selectedVariations || {}) === JSON.stringify(product.selectedVariations || {})
+            item.id === product.id &&
+            JSON.stringify(item.selectedVariations || {}) === JSON.stringify(product.selectedVariations || {}) &&
+            (item.selectedSize || '') === selSize
               ? { ...item, quantity: item.quantity + (product.quantity || 1) }
               : item
           )
@@ -122,39 +123,62 @@ export const CartProvider = ({ children }) => {
   const openCart = () => setIsCartOpen(true)
   const closeCart = () => setIsCartOpen(false)
 
-  const removeFromCart = (productId) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== productId))
+  const removeFromCart = (productId, itemData = null) => {
+    setCart(prevCart => {
+      if (itemData && (itemData.length || itemData.sqft)) {
+        const uniqueKey = `${itemData.id}_${itemData.sqft || 0}_${itemData.length || 0}_${JSON.stringify(itemData.selectedVariations || {})}_${itemData.selectedSize || ''}_${itemData.length_prices ? JSON.stringify(itemData.length_prices) : ''}`
+        return prevCart.filter(item => {
+          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.selectedSize || ''}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
+          return itemKey !== uniqueKey
+        })
+      }
+      if (itemData && (Object.keys(itemData.selectedVariations || {}).length > 0 || itemData.selectedSize)) {
+        return prevCart.filter(item =>
+          !(item.id === productId &&
+            JSON.stringify(item.selectedVariations || {}) === JSON.stringify(itemData?.selectedVariations || {}) &&
+            (item.selectedSize || '') === (itemData?.selectedSize || ''))
+        )
+      }
+      return prevCart.filter(item => item.id !== productId)
+    })
   }
 
   const updateQuantity = (productId, quantity, itemData = null) => {
-    if (quantity <= 0) {
-      // For length/sqft products, we need to remove by unique key
-      if (itemData && (itemData.length || itemData.sqft)) {
-        setCart(prevCart => {
-          const uniqueKey = `${itemData.id}_${itemData.sqft || 0}_${itemData.length || 0}_${JSON.stringify(itemData.selectedVariations || {})}_${itemData.length_prices ? JSON.stringify(itemData.length_prices) : ''}`
-          return prevCart.filter(item => {
-            const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
-            return itemKey !== uniqueKey
+      if (quantity <= 0) {
+        if (itemData && (itemData.length || itemData.sqft)) {
+          setCart(prevCart => {
+            const uniqueKey = `${itemData.id}_${itemData.sqft || 0}_${itemData.length || 0}_${JSON.stringify(itemData.selectedVariations || {})}_${itemData.selectedSize || ''}_${itemData.length_prices ? JSON.stringify(itemData.length_prices) : ''}`
+            return prevCart.filter(item => {
+              const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.selectedSize || ''}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
+              return itemKey !== uniqueKey
+            })
           })
-        })
-      } else {
-        removeFromCart(productId)
-      }
+        } else if (itemData && (itemData.selectedVariations || itemData.selectedSize)) {
+          setCart(prevCart =>
+            prevCart.filter(item =>
+              !(item.id === productId &&
+                JSON.stringify(item.selectedVariations || {}) === JSON.stringify(itemData?.selectedVariations || {}) &&
+                (item.selectedSize || '') === (itemData?.selectedSize || ''))
+            )
+          )
+        } else {
+          removeFromCart(productId)
+        }
       return
     }
     setCart(prevCart =>
       prevCart.map(item => {
         // For length/sqft products, match by unique key
         if (itemData && (itemData.length || itemData.sqft)) {
-          const uniqueKey = `${itemData.id}_${itemData.sqft || 0}_${itemData.length || 0}_${JSON.stringify(itemData.selectedVariations || {})}_${itemData.length_prices ? JSON.stringify(itemData.length_prices) : ''}`
-          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
+          const uniqueKey = `${itemData.id}_${itemData.sqft || 0}_${itemData.length || 0}_${JSON.stringify(itemData.selectedVariations || {})}_${itemData.selectedSize || ''}_${itemData.length_prices ? JSON.stringify(itemData.length_prices) : ''}`
+          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}_${item.selectedSize || ''}_${item.length_prices ? JSON.stringify(item.length_prices) : ''}`
           if (itemKey === uniqueKey) {
             return { ...item, quantity }
           }
         } else {
-          // For standard products, match by productId and variations
-          if (item.id === productId && 
-              JSON.stringify(item.selectedVariations || {}) === JSON.stringify(itemData?.selectedVariations || {})) {
+          if (item.id === productId &&
+              JSON.stringify(item.selectedVariations || {}) === JSON.stringify(itemData?.selectedVariations || {}) &&
+              (item.selectedSize || '') === (itemData?.selectedSize || '')) {
             return { ...item, quantity }
           }
         }

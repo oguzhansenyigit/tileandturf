@@ -59,8 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Build items table HTML
     $itemsHtml = '';
     foreach ($orderItems as $item) {
+        $nameCell = htmlspecialchars($item['product_name']);
+        if (!empty($item['selected_size'])) {
+            $nameCell .= ' <span style="color:#6b7280;font-size:0.9em">(' . htmlspecialchars($item['selected_size']) . ')</span>';
+        }
         $itemsHtml .= '<tr>
-            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . htmlspecialchars($item['product_name']) . '</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . $nameCell . '</td>
             <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $item['quantity'] . '</td>
             <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$' . number_format($item['product_price'], 2) . '</td>
             <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$' . number_format($item['subtotal'], 2) . '</td>

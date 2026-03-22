@@ -1,6 +1,9 @@
 <?php
 require_once 'config.php';
 
+@ini_set('upload_max_filesize', '32M');
+@ini_set('post_max_size', '36M');
+
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -22,7 +25,7 @@ if (!isset($_FILES['file'])) {
 
 $file = $_FILES['file'];
 $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-$maxSize = 5 * 1024 * 1024; // 5MB
+$maxSize = 20 * 1024 * 1024; // 20MB (room scenes / high-res product photos)
 
 // Validate file type
 if (!in_array($file['type'], $allowedTypes)) {
@@ -32,7 +35,7 @@ if (!in_array($file['type'], $allowedTypes)) {
 
 // Validate file size
 if ($file['size'] > $maxSize) {
-    echo json_encode(['success' => false, 'error' => 'File size exceeds 5MB limit.']);
+    echo json_encode(['success' => false, 'error' => 'File size exceeds 20MB limit.']);
     exit;
 }
 

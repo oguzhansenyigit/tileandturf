@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 
+const COLOR_OPTION_SIZE_TAGS = ['12x48', '24x24', '24x48']
+
+// Option key for product pricing: string option or option.label for color
+const getOptionKey = (option) =>
+  typeof option === 'string' ? option : (option?.label ?? '')
+
+const getOptionLabel = (option) =>
+  typeof option === 'string' ? option : (option?.label ?? '')
+
 const VariationsManagement = () => {
   const [variations, setVariations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -13,6 +22,9 @@ const VariationsManagement = () => {
     description: ''
   })
   const [newOption, setNewOption] = useState('')
+  const [newColorLabel, setNewColorLabel] = useState('')
+  /** 'img-0' | 'room-0' | null */
+  const [uploadingSlot, setUploadingSlot] = useState(null)
 
   useEffect(() => {
     fetchVariations()
@@ -31,13 +43,44 @@ const VariationsManagement = () => {
     }
   }
 
-  const handleAddOption = () => {
-    if (newOption.trim()) {
-      setVariationForm({
-        ...variationForm,
-        options: [...variationForm.options, newOption.trim()]
+  const isColorType = variationForm.type === 'color'
+
+  const normalizeOptionsForType = (options, type) => {
+    if (!Array.isArray(options)) return []
+    if (type === 'color') {
+      return options.map((o) => {
+        if (typeof o === 'string') return { label: o, image: '', sizes: [], roomScene: '' }
+        const sizes = Array.isArray(o?.sizes)
+          ? o.sizes.filter((s) => typeof s === 'string' && COLOR_OPTION_SIZE_TAGS.includes(s))
+          : []
+        return {
+          label: o?.label ?? '',
+          image: o?.image ?? '',
+          sizes,
+          roomScene: o?.roomScene ?? '',
+        }
       })
-      setNewOption('')
+    }
+    return options.map((o) => (typeof o === 'string' ? o : o?.label ?? ''))
+  }
+
+  const handleAddOption = () => {
+    if (isColorType) {
+      if (newColorLabel.trim()) {
+        setVariationForm({
+          ...variationForm,
+          options: [...variationForm.options, { label: newColorLabel.trim(), image: '', sizes: [], roomScene: '' }]
+        })
+        setNewColorLabel('')
+      }
+    } else {
+      if (newOption.trim()) {
+        setVariationForm({
+          ...variationForm,
+          options: [...variationForm.options, newOption.trim()]
+        })
+        setNewOption('')
+      }
     }
   }
 
@@ -46,12 +89,88 @@ const VariationsManagement = () => {
     setVariationForm({ ...variationForm, options: newOptions })
   }
 
+  const toggleColorOptionSize = (index, sizeTag) => {
+    const newOptions = [...variationForm.options]
+    const opt = newOptions[index]
+    if (typeof opt !== 'object' || opt === null) return
+    const prev = Array.isArray(opt.sizes) ? [...opt.sizes] : []
+    const i = prev.indexOf(sizeTag)
+    if (i >= 0) prev.splice(i, 1)
+    else prev.push(sizeTag)
+    newOptions[index] = { ...opt, sizes: prev }
+    setVariationForm({ ...variationForm, options: newOptions })
+  }
+
+  const handleColorOptionImageUpload = async (index, file) => {
+    if (!file) return
+    setUploadingSlot(`img-${index}`)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await axios.post('/api/upload-image.php', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      if (data.success && data.url) {
+        const newOptions = [...variationForm.options]
+        const opt = newOptions[index]
+        if (typeof opt === 'object' && opt !== null) {
+          newOptions[index] = { ...opt, image: data.url }
+          setVariationForm({ ...variationForm, options: newOptions })
+        }
+      } else {
+        alert(data.error || 'Image upload failed')
+      }
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.error || 'Image upload failed')
+    } finally {
+      setUploadingSlot(null)
+    }
+  }
+
+  const handleColorOptionRoomSceneUpload = async (index, file) => {
+    if (!file) return
+    setUploadingSlot(`room-${index}`)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const { data } = await axios.post('/api/upload-image.php', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      if (data.success && data.url) {
+        const newOptions = [...variationForm.options]
+        const opt = newOptions[index]
+        if (typeof opt === 'object' && opt !== null) {
+          newOptions[index] = { ...opt, roomScene: data.url }
+          setVariationForm({ ...variationForm, options: newOptions })
+        }
+      } else {
+        alert(data.error || 'Room scene upload failed')
+      }
+    } catch (err) {
+      console.error(err)
+      alert(err.response?.data?.error || 'Room scene upload failed')
+    } finally {
+      setUploadingSlot(null)
+    }
+  }
+
+  const clearColorOptionRoomScene = (index) => {
+    const newOptions = [...variationForm.options]
+    const opt = newOptions[index]
+    if (typeof opt === 'object' && opt !== null) {
+      newOptions[index] = { ...opt, roomScene: '' }
+      setVariationForm({ ...variationForm, options: newOptions })
+    }
+  }
+
   const handleVariationSubmit = async (e) => {
     e.preventDefault()
     try {
+      const optionsToSave = normalizeOptionsForType(variationForm.options, variationForm.type)
       const variationData = {
         ...variationForm,
-        options: variationForm.options
+        options: optionsToSave
       }
 
       if (editingVariation) {
@@ -80,10 +199,12 @@ const VariationsManagement = () => {
 
   const handleEditVariation = (variation) => {
     setEditingVariation(variation)
+    const opts = Array.isArray(variation.options) ? variation.options : []
+    const normalized = normalizeOptionsForType(opts, variation.type || 'select')
     setVariationForm({
       name: variation.name || '',
       type: variation.type || 'select',
-      options: Array.isArray(variation.options) ? variation.options : [],
+      options: normalized,
       description: variation.description || ''
     })
     setShowVariationForm(true)
@@ -152,7 +273,14 @@ const VariationsManagement = () => {
               <label className="block text-gray-700 font-semibold mb-2">Variation Type</label>
               <select
                 value={variationForm.type}
-                onChange={(e) => setVariationForm({ ...variationForm, type: e.target.value })}
+                onChange={(e) => {
+                  const newType = e.target.value
+                  setVariationForm({
+                    ...variationForm,
+                    type: newType,
+                    options: normalizeOptionsForType(variationForm.options, newType)
+                  })
+                }}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
               >
                 <option value="select">Select</option>
@@ -165,46 +293,174 @@ const VariationsManagement = () => {
 
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Options *</label>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={newOption}
-                  onChange={(e) => setNewOption(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleAddOption()
-                    }
-                  }}
-                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2"
-                  placeholder="Enter option value (e.g., Small, Red, Wood)"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddOption}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
-                >
-                  Add Option
-                </button>
-              </div>
-              {variationForm.options.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {variationForm.options.map((option, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-lg"
+              {isColorType ? (
+                <>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newColorLabel}
+                      onChange={(e) => setNewColorLabel(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddOption()
+                        }
+                      }}
+                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2"
+                      placeholder="Color name (e.g., Natural, Walnut)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddOption}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
                     >
-                      <span className="text-sm text-gray-700">{option}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveOption(index)}
-                        className="text-red-600 hover:text-red-800 font-bold"
-                      >
-                        ×
-                      </button>
+                      Add Option
+                    </button>
+                  </div>
+                  {variationForm.options.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-3">
+                      {variationForm.options.map((option, index) => {
+                        const label = getOptionLabel(option)
+                        const image = typeof option === 'object' && option?.image
+                        const sizes = typeof option === 'object' && Array.isArray(option.sizes) ? option.sizes : []
+                        const roomScene = typeof option === 'object' && option?.roomScene
+                        return (
+                          <div
+                            key={index}
+                            className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex flex-col items-center"
+                          >
+                            <div className="w-20 h-20 rounded-lg border border-gray-300 bg-white overflow-hidden mb-2 flex items-center justify-center">
+                              {image ? (
+                                <img src={image} alt={label} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-gray-400 text-xs">No image</span>
+                              )}
+                            </div>
+                            <span className="text-sm font-medium text-gray-800 mb-1">{label}</span>
+                            <div className="flex flex-wrap gap-2 justify-center mb-2 w-full">
+                              {COLOR_OPTION_SIZE_TAGS.map((tag) => (
+                                <label
+                                  key={tag}
+                                  className="inline-flex items-center gap-1 text-[11px] text-gray-700 cursor-pointer select-none"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={sizes.includes(tag)}
+                                    onChange={() => toggleColorOptionSize(index, tag)}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                  />
+                                  {tag}
+                                </label>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap gap-1 justify-center">
+                              <label className="cursor-pointer text-xs px-2 py-1 bg-primary text-white rounded hover:bg-primary-dark">
+                                {uploadingSlot === `img-${index}` ? 'Uploading…' : 'Swatch image'}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadingSlot !== null}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0]
+                                    if (f) handleColorOptionImageUpload(index, f)
+                                    e.target.value = ''
+                                  }}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOption(index)}
+                                className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <div className="w-full mt-3 pt-3 border-t border-gray-200">
+                              <p className="text-[11px] font-semibold text-gray-600 mb-1.5 text-center">Room scene</p>
+                              <div className="w-full h-16 rounded border border-dashed border-gray-300 bg-white overflow-hidden mb-2 flex items-center justify-center">
+                                {roomScene ? (
+                                  <img src={roomScene} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-gray-400 text-[10px] px-1 text-center">Hero / lifestyle</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-1 justify-center">
+                                <label className="cursor-pointer text-xs px-2 py-1 bg-slate-600 text-white rounded hover:bg-slate-700">
+                                  {uploadingSlot === `room-${index}` ? 'Uploading…' : 'Upload room scene'}
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={uploadingSlot !== null}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0]
+                                      if (f) handleColorOptionRoomSceneUpload(index, f)
+                                      e.target.value = ''
+                                    }}
+                                  />
+                                </label>
+                                {roomScene && (
+                                  <button
+                                    type="button"
+                                    onClick={() => clearColorOptionRoomScene(index)}
+                                    className="text-xs px-2 py-1 text-gray-600 hover:bg-gray-200 rounded"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newOption}
+                      onChange={(e) => setNewOption(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleAddOption()
+                        }
+                      }}
+                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2"
+                      placeholder="Enter option value (e.g., Small, Red, Wood)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddOption}
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
+                    >
+                      Add Option
+                    </button>
+                  </div>
+                  {variationForm.options.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {variationForm.options.map((option, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-lg"
+                        >
+                          <span className="text-sm text-gray-700">{option}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOption(index)}
+                            className="text-red-600 hover:text-red-800 font-bold"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
               {variationForm.options.length === 0 && (
                 <p className="text-sm text-gray-500 mt-1">Add at least one option</p>
@@ -267,16 +523,23 @@ const VariationsManagement = () => {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-sm">
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1 items-center">
                     {Array.isArray(variation.options) && variation.options.length > 0 ? (
-                      variation.options.map((option, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
-                        >
-                          {option}
-                        </span>
-                      ))
+                      variation.options.map((option, index) => {
+                        const label = getOptionLabel(option)
+                        const img = typeof option === 'object' && option?.image
+                        return (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                          >
+                            {img && (
+                              <img src={img} alt={label} className="w-5 h-5 rounded object-cover" />
+                            )}
+                            {label}
+                          </span>
+                        )
+                      })
                     ) : (
                       <span className="text-gray-400 text-xs">No options</span>
                     )}

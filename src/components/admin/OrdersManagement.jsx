@@ -163,10 +163,10 @@ const OrdersManagement = () => {
                     {(selectedOrder.items || []).map((item, index) => (
                       <div key={index} className="flex justify-between text-sm border-b pb-2">
                         <div>
-                          <p className="font-semibold">{item.name}</p>
-                          <p className="text-gray-500">Qty: {item.quantity} × ${(parseFloat(item.price) || 0).toFixed(2)}</p>
+                          <p className="font-semibold">{item.product_name || item.name}</p>
+                          <p className="text-gray-500">Qty: {item.quantity} × ${(parseFloat(item.product_price ?? item.price) || 0).toFixed(2)}{item.selected_size ? ` · Size: ${item.selected_size}` : ''}</p>
                         </div>
-                        <span className="font-semibold">${((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0)).toFixed(2)}</span>
+                        <span className="font-semibold">${((parseFloat(item.product_price ?? item.price) || 0) * (parseInt(item.quantity) || 0)).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

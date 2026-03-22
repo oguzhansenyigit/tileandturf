@@ -31,8 +31,4 @@ yarn-error.log*
 # PHP
 *.log
 /vendor/
-api/config.php
-
-# Markdown (repo'da tutmuyoruz)
-*.md
 

@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS order_items (
     product_price DECIMAL(10, 2) NOT NULL,
     quantity INT NOT NULL,
     subtotal DECIMAL(10, 2) NOT NULL,
+    selected_size VARCHAR(50) NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
 );
