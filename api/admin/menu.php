@@ -4,10 +4,14 @@ require_once '../config.php';
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $sql = "SELECT * FROM menu_items ORDER BY order_index ASC";
+    $sql = "SELECT * FROM menu_items ORDER BY order_index ASC, id ASC";
     $result = $conn->query($sql);
     $menuItems = [];
+    $seen = [];
     while ($row = $result->fetch_assoc()) {
+        $key = ($row['parent_id'] ?? '') . '|' . $row['slug'];
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
         $menuItems[] = $row;
     }
     echo json_encode($menuItems);

@@ -1,6 +1,4 @@
 <?php
-require_once 'config.php';
-
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -8,248 +6,116 @@ header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
-    exit();
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
-    
-    // Generate order number
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'error' => 'POST only']);
+    exit;
+}
+
+try {
+    require_once __DIR__ . '/config.php';
+} catch (Throwable $e) {
+    echo json_encode(['success' => false, 'error' => 'Config: ' . $e->getMessage()]);
+    exit;
+}
+
+try {
+    $raw = file_get_contents('php://input');
+    $data = json_decode($raw, true);
+    if (!is_array($data) || empty($data['items'])) {
+        echo json_encode(['success' => false, 'error' => 'Invalid data or empty cart']);
+        exit;
+    }
+
     $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-    
-    // Insert order
-    $firstName = $conn->real_escape_string($data['firstName']);
-    $lastName = $conn->real_escape_string($data['lastName']);
-    $email = $conn->real_escape_string($data['email']);
+    $firstName = $conn->real_escape_string($data['firstName'] ?? '');
+    $lastName = $conn->real_escape_string($data['lastName'] ?? '');
+    $email = $conn->real_escape_string($data['email'] ?? '');
     $phone = $conn->real_escape_string($data['phone'] ?? '');
-    $address = $conn->real_escape_string($data['address']);
-    $city = $conn->real_escape_string($data['city']);
-    $state = $conn->real_escape_string($data['state']);
-    $zipCode = $conn->real_escape_string($data['zipCode']);
+    $address = $conn->real_escape_string($data['address'] ?? '');
+    $city = $conn->real_escape_string($data['city'] ?? '');
+    $state = $conn->real_escape_string($data['state'] ?? '');
+    $zipCode = $conn->real_escape_string($data['zipCode'] ?? '');
     $country = $conn->real_escape_string($data['country'] ?? 'United States');
-    $total = floatval($data['total']);
+    $total = floatval($data['total'] ?? 0);
     $paymentMethod = $conn->real_escape_string($data['paymentMethod'] ?? 'credit_card');
-    
+
     $sql = "INSERT INTO orders (order_number, first_name, last_name, email, phone, address, city, state, zip_code, country, total, payment_method) 
             VALUES ('$orderNumber', '$firstName', '$lastName', '$email', '$phone', '$address', '$city', '$state', '$zipCode', '$country', $total, '$paymentMethod')";
-    
-    if ($conn->query($sql)) {
-        $orderId = $conn->insert_id;
-        
-        // Insert order items
-        $items = $data['items'];
-        foreach ($items as $item) {
-            $productId = isset($item['id']) ? intval($item['id']) : null;
-            $productName = $conn->real_escape_string($item['name']);
-            $productPrice = floatval($item['price']);
-            $quantity = intval($item['quantity']);
-            $subtotal = $productPrice * $quantity;
-            $selectedSize = isset($item['selectedSize']) && $item['selectedSize'] !== ''
-                ? "'" . $conn->real_escape_string($item['selectedSize']) . "'" : 'NULL';
-            
-            $itemSql = "INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal, selected_size) 
-                       VALUES ($orderId, " . ($productId ? $productId : 'NULL') . ", '$productName', $productPrice, $quantity, $subtotal, $selectedSize)";
-            $conn->query($itemSql);
-        }
-        
-        // Send emails
-        $orderItems = [];
-        foreach ($items as $item) {
-            $orderItems[] = [
-                'name' => $item['name'],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'subtotal' => floatval($item['price']) * intval($item['quantity']),
-                'selectedSize' => $item['selectedSize'] ?? null
-            ];
-        }
-        
-        // Email to customer - HTML format with logo and signature
-        $customerSubject = "Order Confirmation - $orderNumber";
-        
-        // Build items table HTML
-        $itemsHtml = '';
-        foreach ($orderItems as $item) {
-            $nameCell = htmlspecialchars($item['name']);
-            if (!empty($item['selectedSize'])) {
-                $nameCell .= ' <span style="color:#6b7280;font-size:0.9em">(' . htmlspecialchars($item['selectedSize']) . ')</span>';
-            }
-            $itemsHtml .= '<tr>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . $nameCell . '</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $item['quantity'] . '</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$' . number_format($item['price'], 2) . '</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$' . number_format($item['subtotal'], 2) . '</td>
-            </tr>';
-        }
-        
-        $customerBody = '<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmation</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f3f4f6;">
-    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 20px;">
-        <tr>
-            <td align="center">
-                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <!-- Header with Logo -->
-                    <tr>
-                        <td style="background: linear-gradient(135deg, #43a047 0%, #66bb6a 100%); padding: 30px; text-align: center;">
-                            <div style="margin-bottom: 15px;">
-                                <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold; letter-spacing: 1px;">TILE & TURF</h1>
-                            </div>
-                            <h2 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: 500; opacity: 0.95;">Order Confirmation</h2>
-                        </td>
-                    </tr>
-                    
-                    <!-- Content -->
-                    <tr>
-                        <td style="padding: 30px;">
-                            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                                Dear ' . htmlspecialchars($firstName) . ' ' . htmlspecialchars($lastName) . ',
-                            </p>
-                            
-                            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                                Thank you for your order! Your order has been received and is being processed.
-                            </p>
-                            
-                            <!-- Important Notice -->
-                            <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <p style="color: #991b1b; font-size: 16px; font-weight: bold; margin: 0 0 10px 0;">
-                                    Order Processing Information
-                                </p>
-                                <p style="color: #7f1d1d; font-size: 14px; line-height: 1.6; margin: 0 0 10px 0;">
-                                    Your order and payment processes will be completed after our customer service contacts you for payment confirmation, shipping calculation, and product approval.
-                                </p>
-                                <p style="color: #7f1d1d; font-size: 14px; line-height: 1.6; margin: 0;">
-                                    You may also call us at <a href="tel:+15167741808" style="color: #991b1b; font-weight: bold; text-decoration: underline;">(516) 774-1808</a> if you prefer.
-                                </p>
-                            </div>
-                            
-                            <!-- Order Details -->
-                            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <h2 style="color: #111827; font-size: 20px; margin: 0 0 15px 0; border-bottom: 2px solid #43a047; padding-bottom: 10px;">Order Details</h2>
-                                <table width="100%" cellpadding="5" cellspacing="0">
-                                    <tr>
-                                        <td style="color: #6b7280; font-weight: 600; padding: 8px 0;">Order Number:</td>
-                                        <td style="color: #111827; font-weight: bold; padding: 8px 0; text-align: right; font-size: 18px; color: #43a047;">' . htmlspecialchars($orderNumber) . '</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="color: #6b7280; font-weight: 600; padding: 8px 0;">Order Date:</td>
-                                        <td style="color: #111827; padding: 8px 0; text-align: right;">' . date('F j, Y') . '</td>
-                                    </tr>
-                                </table>
-                            </div>
-                            
-                            <!-- Order Items -->
-                            <h2 style="color: #111827; font-size: 20px; margin: 30px 0 15px 0; border-bottom: 2px solid #43a047; padding-bottom: 10px;">Order Items</h2>
-                            <table width="100%" cellpadding="10" cellspacing="0" style="border-collapse: collapse; margin-bottom: 20px;">
-                                <thead>
-                                    <tr style="background-color: #f9fafb;">
-                                        <th style="padding: 12px; text-align: left; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Product</th>
-                                        <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qty</th>
-                                        <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Price</th>
-                                        <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ' . $itemsHtml . '
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <td colspan="3" style="padding: 15px; text-align: right; font-weight: bold; color: #374151; font-size: 16px; border-top: 2px solid #e5e7eb;">Total:</td>
-                                        <td style="padding: 15px; text-align: right; font-weight: bold; color: #111827; font-size: 20px; border-top: 2px solid #e5e7eb; color: #43a047;">$' . number_format($total, 2) . '</td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                            
-                            <!-- Shipping Address -->
-                            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                                <h2 style="color: #111827; font-size: 20px; margin: 0 0 15px 0; border-bottom: 2px solid #43a047; padding-bottom: 10px;">Shipping Address</h2>
-                                <p style="color: #374151; font-size: 14px; line-height: 1.8; margin: 0;">
-                                    ' . htmlspecialchars($address) . '<br>
-                                    ' . htmlspecialchars($city) . ', ' . htmlspecialchars($state) . ' ' . htmlspecialchars($zipCode) . '<br>
-                                    ' . htmlspecialchars($country) . '
-                                </p>
-                            </div>
-                            
-                            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 20px 0;">
-                                A customer service representative will contact you shortly to confirm your order details and arrange payment.
-                            </p>
-                            
-                            <p style="color: #374151; font-size: 16px; line-height: 1.6; margin: 20px 0;">
-                                Thank you for choosing Tile and Turf!
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer with Signature -->
-                    <tr>
-                        <td style="background-color: #f9fafb; padding: 30px; border-top: 1px solid #e5e7eb;">
-                            <p style="color: #374151; font-size: 14px; margin: 0 0 10px 0; font-weight: 600;">Best regards,</p>
-                            <p style="color: #43a047; font-size: 18px; margin: 0 0 5px 0; font-weight: bold;">Tile and Turf Team</p>
-                            <p style="color: #6b7280; font-size: 12px; margin: 10px 0 0 0;">
-                                Phone: <a href="tel:+15167741808" style="color: #43a047; text-decoration: none;">(516) 774-1808</a><br>
-                                Email: <a href="mailto:info@tileandturf.com" style="color: #43a047; text-decoration: none;">info@tileandturf.com</a><br>
-                                Address: 5424 73rd Pl, Maspeth, NY 11378
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>';
-        
-        $customerHeaders = "From: Tile and Turf <noreply@tileandturf.com>\r\n";
-        $customerHeaders .= "Reply-To: info@tileandturf.com\r\n";
-        $customerHeaders .= "MIME-Version: 1.0\r\n";
-        $customerHeaders .= "Content-Type: text/html; charset=UTF-8\r\n";
-        
-        @mail($email, $customerSubject, $customerBody, $customerHeaders);
-        
-        // Email to admin (info@tileandturf.com and anil@pedexon.com)
-        $adminSubject = "New Order Received - $orderNumber";
-        $adminBody = "New order received:\n\n";
-        $adminBody .= "ORDER NUMBER: $orderNumber\n";
-        $adminBody .= "ORDER DATE: " . date('F j, Y, g:i a') . "\n\n";
-        $adminBody .= "CUSTOMER INFORMATION:\n";
-        $adminBody .= "Name: $firstName $lastName\n";
-        $adminBody .= "Email: $email\n";
-        $adminBody .= "Phone: $phone\n\n";
-        $adminBody .= "SHIPPING ADDRESS:\n";
-        $adminBody .= "$address\n";
-        $adminBody .= "$city, $state $zipCode\n";
-        $adminBody .= "$country\n\n";
-        $adminBody .= "ORDER ITEMS:\n";
-        foreach ($orderItems as $item) {
-            $line = "- {$item['name']} x{$item['quantity']} @ $" . number_format($item['price'], 2) . " = $" . number_format($item['subtotal'], 2]);
-            if (!empty($item['selectedSize'])) {
-                $line .= " [Size: {$item['selectedSize']}]";
-            }
-            $adminBody .= $line . "\n";
-        }
-        $adminBody .= "\nTOTAL: $" . number_format($total, 2) . "\n";
-        $adminBody .= "PAYMENT METHOD: $paymentMethod\n\n";
-        $adminBody .= "Please contact the customer to confirm the order and arrange payment.\n";
-        
-        $adminHeaders = "From: noreply@tileandturf.com\r\n";
-        $adminHeaders .= "Reply-To: $email\r\n";
-        $adminHeaders .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        
-        // Send to both admin emails
-        @mail('info@tileandturf.com', $adminSubject, $adminBody, $adminHeaders);
-        @mail('anil@pedexon.com', $adminSubject, $adminBody, $adminHeaders);
-        
-        echo json_encode(['success' => true, 'orderId' => $orderId, 'orderNumber' => $orderNumber]);
-    } else {
-        echo json_encode(['success' => false, 'error' => $conn->error]);
+
+    if (!$conn->query($sql)) {
+        echo json_encode(['success' => false, 'error' => 'Order insert: ' . $conn->error]);
+        exit;
     }
+
+    $orderId = $conn->insert_id;
+    $cols = $conn->query("SHOW COLUMNS FROM order_items LIKE 'selected_size'");
+    $hasSelectedSize = ($cols && $cols->num_rows > 0);
+
+    foreach ($data['items'] as $item) {
+        $productId = isset($item['id']) && intval($item['id']) > 0 ? intval($item['id']) : 'NULL';
+        $productName = $conn->real_escape_string(substr($item['name'] ?? 'Product', 0, 255));
+        $productPrice = floatval($item['price'] ?? 0);
+        $quantity = max(1, intval($item['quantity'] ?? 1));
+        $subtotal = $productPrice * $quantity;
+        $selectedSize = ($hasSelectedSize && !empty($item['selectedSize']))
+            ? "'" . $conn->real_escape_string($item['selectedSize']) . "'" : ($hasSelectedSize ? 'NULL' : '');
+
+        $colPart = $hasSelectedSize ? ', selected_size' : '';
+        $valPart = $hasSelectedSize ? ", $selectedSize" : '';
+        $itemSql = "INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal$colPart) 
+                    VALUES ($orderId, $productId, '$productName', $productPrice, $quantity, $subtotal$valPart)";
+        if (!$conn->query($itemSql)) {
+            echo json_encode(['success' => false, 'error' => 'Item insert: ' . $conn->error]);
+            exit;
+        }
+    }
+
+    $orderItems = [];
+    foreach ($data['items'] as $item) {
+        $orderItems[] = [
+            'name' => $item['name'] ?? 'Product',
+            'quantity' => intval($item['quantity'] ?? 1),
+            'price' => floatval($item['price'] ?? 0),
+            'selectedSize' => $item['selectedSize'] ?? null
+        ];
+    }
+
+    $itemsHtml = '';
+    foreach ($orderItems as $i) {
+        $name = htmlspecialchars($i['name']);
+        if (!empty($i['selectedSize'])) $name .= ' <span style="color:#6b7280">(' . htmlspecialchars($i['selectedSize']) . ')</span>';
+        $sub = $i['price'] * $i['quantity'];
+        $itemsHtml .= "<tr><td>$name</td><td style='text-align:center'>{$i['quantity']}</td><td style='text-align:right'>\$" . number_format($i['price'], 2) . "</td><td style='text-align:right;font-weight:bold'>\$" . number_format($sub, 2) . "</td></tr>";
+    }
+
+    $customerBody = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Order Confirmation</title></head><body style="font-family:Arial;padding:20px">';
+    $customerBody .= "<h1>TILE & TURF</h1><h2>Order Confirmation</h2>";
+    $customerBody .= "<p>Dear $firstName $lastName,</p><p>Thank you for your order!</p>";
+    $customerBody .= "<p><strong>Order #:</strong> $orderNumber</p><p><strong>Date:</strong> " . date('F j, Y') . "</p>";
+    $customerBody .= "<table border='1' cellpadding='10' style='border-collapse:collapse;width:100%'><tr style='background:#f5f5f5'><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr>$itemsHtml";
+    $customerBody .= "<tr><td colspan='3' style='text-align:right'><strong>Total</strong></td><td style='text-align:right;font-weight:bold'>\$" . number_format($total, 2) . "</td></tr></table>";
+    $customerBody .= "<p><strong>Shipping:</strong> $address, $city, $state $zipCode, $country</p><p>Thank you!</p></body></html>";
+
+    $headers = "From: Tile and Turf <noreply@tileandturf.com>\r\nContent-Type: text/html; charset=UTF-8\r\n";
+    @mail($email, "Order Confirmation - $orderNumber", $customerBody, $headers);
+
+    $adminBody = "New order $orderNumber\nCustomer: $firstName $lastName\nEmail: $email\n\nItems:\n";
+    foreach ($orderItems as $i) {
+        $adminBody .= "- {$i['name']} x{$i['quantity']} @ \$" . number_format($i['price'], 2);
+        if (!empty($i['selectedSize'])) $adminBody .= " [{$i['selectedSize']}]";
+        $adminBody .= "\n";
+    }
+    $adminBody .= "\nTotal: \$" . number_format($total, 2) . "\n";
+    $adminHeaders = "From: noreply@tileandturf.com\r\nContent-Type: text/plain; charset=UTF-8\r\n";
+    @mail('info@tileandturf.com', "New Order - $orderNumber", $adminBody, $adminHeaders);
+    @mail('anil@pedexon.com', "New Order - $orderNumber", $adminBody, $adminHeaders);
+
+    echo json_encode(['success' => true, 'orderId' => $orderId, 'orderNumber' => $orderNumber]);
+} catch (Throwable $e) {
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
 
 $conn->close();
-?>
-

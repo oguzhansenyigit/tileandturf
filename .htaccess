@@ -2,7 +2,7 @@
   RewriteEngine On
   RewriteBase /
   
-  90mkö# Sitemap.xml - Allow direct file access OR generate via API89)m0bots.txt - Allow direct file access OR generate via API
+  # robots.txt - Allow direct file access OR generate via API
   RewriteCond %{REQUEST_URI} ^/robots\.txt$ [NC]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^robots\.txt$ /api/robots.php [L,QSA]
