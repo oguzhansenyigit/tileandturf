@@ -1,11 +1,17 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useSettings } from '../context/SettingsContext'
 import { useCart } from '../context/CartContext'
 
 const OrderConfirmation = () => {
-  const { orderId } = useParams()
+  const { orderId: orderIdFromPath } = useParams()
+  const [searchParams] = useSearchParams()
+  const orderId = useMemo(() => {
+    const fromQuery = searchParams.get('order')
+    if (fromQuery) return fromQuery
+    return orderIdFromPath
+  }, [searchParams, orderIdFromPath])
   const navigate = useNavigate()
   const { clearCart } = useCart()
   const { whatsappNumber, phoneNumber } = useSettings()

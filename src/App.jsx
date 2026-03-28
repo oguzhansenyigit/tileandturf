@@ -96,6 +96,8 @@ function App() {
           <Route path="/my-account" element={<Layout><MyAccount /></Layout>} />
           <Route path="/track-order" element={<Layout><TrackOrder /></Layout>} />
           <Route path="/contact" element={<Layout><Contact /></Layout>} />
+          {/* Sabit thank-you: Google Ads dönüşüm URL'si için (örn. .../thank-you) */}
+          <Route path="/thank-you" element={<Layout><OrderConfirmation /></Layout>} />
           <Route path="/order-confirmation/:orderId" element={<Layout><OrderConfirmation /></Layout>} />
           <Route path="/terms-and-conditions" element={<Layout><TermsAndConditions /></Layout>} />
           <Route path="/privacy-policy" element={<Layout><PrivacyPolicy /></Layout>} />

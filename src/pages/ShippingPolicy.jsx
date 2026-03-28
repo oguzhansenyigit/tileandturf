@@ -25,9 +25,12 @@ const ShippingPolicy = () => {
               If we are experiencing a high volume of orders or delays due to stock availability, shipments may be delayed by a few days. Please allow additional days in transit for delivery. If there will be a significant delay, we will contact you via email or phone.
             </p>
 
-            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">Shipping Rates & Delivery Estimates</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3 mt-6">Shipping Rates & How We Quote Freight</h3>
             <p className="text-gray-700 leading-relaxed">
-              Shipping charges for your order will be calculated and displayed at checkout. We offer standard ground shipping, freight delivery for larger items (such as porcelain pavers or ipe tiles), and expedited options upon request.
+              <strong>Shipping is not finalized at online checkout.</strong> Product weights, order quantities, and delivery distance vary, so freight must be quoted for your specific order. After you place an order, a Tile and Turf representative will contact you to confirm details, provide a shipping or freight quote, and obtain your approval before the order is finalized for shipment. Any estimate or calculator shown on the website is for reference only and is not binding until confirmed by us.
+            </p>
+            <p className="text-gray-700 leading-relaxed mt-4">
+              We offer standard ground shipping, freight delivery for larger items (such as porcelain pavers or IPE tiles), and expedited options when available, based on your location and shipment characteristics.
             </p>
             <p className="text-gray-700 leading-relaxed mt-4 mb-2">Estimated delivery time:</p>
             <ul className="list-disc list-inside text-gray-700 space-y-2">

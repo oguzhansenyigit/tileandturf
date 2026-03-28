@@ -96,6 +96,18 @@ const ProductsManagement = () => {
     }
   }, [showGiftProductResults])
 
+  // Open edit form when navigated from diagnostics (?section=products&edit=123)
+  useEffect(() => {
+    if (loading || !allProducts.length) return
+    const editId = window.__adminEditProductId
+    if (typeof editId !== 'number' || !editId) return
+    window.__adminEditProductId = undefined
+    const product = allProducts.find(p => p.id == editId)
+    if (product) {
+      handleEditProduct(product)
+    }
+  }, [loading, allProducts])
+
   // Filter products based on search term and category
   useEffect(() => {
     let filtered = [...allProducts]

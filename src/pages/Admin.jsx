@@ -27,6 +27,18 @@ const Admin = () => {
     }
   }, [])
 
+  // Support ?section=products&edit=123 from diagnostics links
+  useEffect(() => {
+    if (!authenticated) return
+    const params = new URLSearchParams(window.location.search)
+    const section = params.get('section')
+    const editId = params.get('edit')
+    if (section) setActiveSection(section)
+    if (section === 'products' && editId) {
+      window.__adminEditProductId = parseInt(editId, 10)
+    }
+  }, [authenticated])
+
   const handleLogin = async (e) => {
     e.preventDefault()
     try {

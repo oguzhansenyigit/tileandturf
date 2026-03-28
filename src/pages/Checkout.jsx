@@ -98,7 +98,7 @@ const Checkout = () => {
         
         // Navigate immediately - don't wait for anything
         // Use window.location for immediate navigation to prevent any interference
-        window.location.href = `/order-confirmation/${orderId}`
+        window.location.href = `/thank-you?order=${orderId}`
       } else {
         alert('Error placing order: ' + (response.data.error || 'Please try again.'))
       }

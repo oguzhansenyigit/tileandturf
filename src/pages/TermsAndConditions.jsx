@@ -31,21 +31,21 @@ const TermsAndConditions = () => {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">3. Pricing & Payment</h2>
             <p className="text-gray-700 leading-relaxed">
-              All prices are listed in U.S. dollars. We reserve the right to change pricing at any time without notice. Payment must be received in full before order processing. We accept most major credit cards and PayPal.
+              All prices are listed in U.S. dollars. We reserve the right to change pricing at any time without notice. <strong>Shipping and freight are quoted after you place an order</strong>, because costs depend on weight, quantity, and delivery location. A customer representative will contact you to confirm product totals, shipping or freight charges, and payment arrangements. Payment is due according to what we agree with you at that time. We may accept major credit cards, PayPal, or other methods as offered when your order is confirmed.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">4. Order Acceptance & Cancellation</h2>
             <p className="text-gray-700 leading-relaxed">
-              We reserve the right to accept or reject any order. If we cancel your order after payment, we will issue a full refund.
+              We reserve the right to accept or reject any order. An online order submission is a request; <strong>the sale is confirmed only after we contact you, agree on shipping or freight and final terms, and you approve the order for fulfillment.</strong> If we cancel your order after you have paid, we will issue an appropriate refund in line with what was agreed.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">5. Shipping & Delivery</h2>
             <p className="text-gray-700 leading-relaxed">
-              Refer to our Shipping Policy for detailed information. Risk of loss passes to you upon delivery of the order to the carrier.
+              Shipping is arranged after order review and your approval of freight costs. Refer to our Shipping Policy for detailed information. Risk of loss passes to you upon delivery of the order to the carrier.
             </p>
           </section>
 
