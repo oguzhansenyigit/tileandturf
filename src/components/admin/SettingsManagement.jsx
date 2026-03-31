@@ -15,6 +15,9 @@ const SettingsManagement = () => {
   const [catalogMode, setCatalogMode] = useState(false)
   const [whatsappNumber, setWhatsappNumber] = useState('15167741808')
   const [phoneNumber, setPhoneNumber] = useState('15167741808')
+  const [googleAdsHeadTag, setGoogleAdsHeadTag] = useState('')
+  const [googleAdsPageRules, setGoogleAdsPageRules] = useState('[]')
+  const [googleAdsClickRules, setGoogleAdsClickRules] = useState('[]')
 
   useEffect(() => {
     fetchSettings()
@@ -38,6 +41,9 @@ const SettingsManagement = () => {
       setCatalogMode(data.catalog_mode === 'active' || data.catalog_mode === '1')
       setWhatsappNumber(data.whatsapp_number || '15167741808')
       setPhoneNumber(data.phone_number || '15167741808')
+      setGoogleAdsHeadTag(data.google_ads_head_tag || '')
+      setGoogleAdsPageRules(data.google_ads_page_rules || '[]')
+      setGoogleAdsClickRules(data.google_ads_click_rules || '[]')
     } catch (error) {
       console.error('Error fetching settings:', error)
       setSettings({})
@@ -99,6 +105,41 @@ const SettingsManagement = () => {
     } catch (error) {
       console.error('Error saving settings:', error)
       alert('Error saving settings')
+    }
+  }
+
+  const handleSaveGoogleAdsTag = async () => {
+    try {
+      await axios.post('/api/admin/settings.php', {
+        google_ads_head_tag: googleAdsHeadTag
+      })
+      alert('Google Ads tag saved successfully!')
+      fetchSettings()
+    } catch (error) {
+      console.error('Error saving Google Ads tag:', error)
+      alert('Error saving Google Ads tag')
+    }
+  }
+
+  const handleSaveGoogleAdsRules = async () => {
+    try {
+      JSON.parse(googleAdsPageRules || '[]')
+      JSON.parse(googleAdsClickRules || '[]')
+    } catch (error) {
+      alert('Rules JSON format is invalid. Please check syntax.')
+      return
+    }
+
+    try {
+      await axios.post('/api/admin/settings.php', {
+        google_ads_page_rules: googleAdsPageRules,
+        google_ads_click_rules: googleAdsClickRules
+      })
+      alert('Google Ads rules saved successfully!')
+      fetchSettings()
+    } catch (error) {
+      console.error('Error saving Google Ads rules:', error)
+      alert('Error saving Google Ads rules')
     }
   }
 
@@ -249,6 +290,67 @@ const SettingsManagement = () => {
             className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
           >
             Save Catalog Mode Settings
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Google Ads / Site Verification Head Tag</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Google Ads conversion tag, Google site verification meta tag, or similar head tags can be pasted here.
+          Saved content is automatically injected into the site head without code deployment.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Head Tag Code</label>
+            <textarea
+              value={googleAdsHeadTag}
+              onChange={(e) => setGoogleAdsHeadTag(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
+              rows="8"
+              placeholder={'e.g.\n<meta name="google-site-verification" content="..."/>\n<script async src="https://www.googletagmanager.com/gtag/js?id=AW-XXXX"></script>\n<script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag("js", new Date()); gtag("config", "AW-XXXX");</script>'}
+            />
+          </div>
+          <button
+            onClick={handleSaveGoogleAdsTag}
+            className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+          >
+            Save Google Ads Tag
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Google Ads Event Rules (Page + Click)</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Define custom tracking rules in JSON. Page rules trigger on route open; click rules trigger when elements are clicked.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Page Rules JSON</label>
+            <textarea
+              value={googleAdsPageRules}
+              onChange={(e) => setGoogleAdsPageRules(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
+              rows="8"
+              placeholder={`[\n  {\n    "path": "/thank-you",\n    "event": "conversion",\n    "params": { "send_to": "AW-XXXX/abc123" },\n    "oncePerSession": false\n  },\n  {\n    "pathPrefix": "/product/",\n    "event": "view_item",\n    "params": { "send_to": "AW-XXXX/view" }\n  }\n]`}
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Click Rules JSON</label>
+            <textarea
+              value={googleAdsClickRules}
+              onChange={(e) => setGoogleAdsClickRules(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
+              rows="8"
+              placeholder={`[\n  {\n    "selector": "a[href*='/product/']",\n    "event": "conversion",\n    "params": { "send_to": "AW-XXXX/clickProduct" }\n  },\n  {\n    "selector": "button[type='submit']",\n    "event": "begin_checkout",\n    "params": {}\n  }\n]`}
+            />
+          </div>
+          <button
+            onClick={handleSaveGoogleAdsRules}
+            className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+          >
+            Save Google Ads Rules
           </button>
         </div>
       </div>
