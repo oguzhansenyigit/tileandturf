@@ -2,21 +2,22 @@
 $googleAdsHeadTag = '';
 
 // Server-side injection so Google crawlers can detect tags in raw HTML.
+// Use the same DB connection config as API to avoid mismatch.
 try {
-    $dbHost = 'localhost';
-    $dbUser = 'u753039087_newweb';
-    $dbPass = '11241124Oguzhan.';
-    $dbName = 'u753039087_newweb1';
+    ob_start();
+    require_once __DIR__ . '/api/config.php';
+    ob_end_clean();
 
-    $db = @new mysqli($dbHost, $dbUser, $dbPass, $dbName);
-    if (!$db->connect_error) {
-        $db->set_charset('utf8');
+    // Ensure this page is served as HTML even if config sets JSON headers.
+    header('Content-Type: text/html; charset=UTF-8');
+
+    if (isset($conn) && $conn instanceof mysqli && !$conn->connect_error) {
         $sql = "SELECT setting_value FROM settings WHERE setting_key = 'google_ads_head_tag' LIMIT 1";
-        $res = $db->query($sql);
+        $res = $conn->query($sql);
         if ($res && $row = $res->fetch_assoc()) {
             $googleAdsHeadTag = (string)($row['setting_value'] ?? '');
         }
-        $db->close();
+        $conn->close();
     }
 } catch (Throwable $e) {
     // Fail silently to avoid breaking page rendering.
@@ -31,6 +32,14 @@ try {
     <title>Tile and Turf - Building Materials</title>
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick.min.css"/>
     <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick-theme.min.css"/>
+    <!-- Google tag (gtag.js) - manual fallback -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17685411407"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'AW-17685411407');
+    </script>
     <?php
       // Stored tag HTML should be trusted only for admin users.
       if (!empty($googleAdsHeadTag)) {
