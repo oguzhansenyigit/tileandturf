@@ -372,6 +372,12 @@ const SettingsManagement = () => {
               rows="8"
               placeholder={DEFAULT_PAGE_RULES_TEMPLATE}
             />
+            <p className="text-xs text-gray-600 mt-2">
+              <strong>How to use:</strong> Use <code>path</code> for exact match (e.g. <code>/thank-you</code>) or{' '}
+              <code>pathPrefix</code> for starts-with match (e.g. <code>/product/</code>).{' '}
+              <code>event</code> is the gtag event name. <code>params</code> contains Google Ads values like{' '}
+              <code>send_to</code>. Set <code>oncePerSession</code> to <code>true</code> if you want it to fire once per browser session.
+            </p>
           </div>
           <div>
             <label className="block text-gray-700 font-semibold mb-2">Click Rules JSON</label>
@@ -382,6 +388,11 @@ const SettingsManagement = () => {
               rows="8"
               placeholder={DEFAULT_CLICK_RULES_TEMPLATE}
             />
+            <p className="text-xs text-gray-600 mt-2">
+              <strong>How to use:</strong> <code>selector</code> must be a valid CSS selector (e.g.{' '}
+              <code>a[href*='/product/']</code>, <code>.add-to-cart-btn</code>). When a clicked element matches this selector,{' '}
+              <code>event</code> and <code>params</code> are sent with gtag. Use one rule per click target for clean reporting.
+            </p>
           </div>
           <button
             onClick={handleSaveGoogleAdsRules}
