@@ -1,6 +1,58 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
 
+/** Google Ads: Add to cart conversion (event snippet from Google Ads UI) */
+const GOOGLE_ADS_ADD_TO_CART_SEND_TO = 'AW-17685411407/-hThCNr8w8AbEM_sh_FB'
+
+const getLineValueForConversion = (item) => {
+  const qty = parseInt(item.quantity, 10) || 1
+  let price = parseFloat(item.price) || 0
+  if (item.sqft && item.sqft_price) {
+    return parseFloat(item.sqft) * parseFloat(item.sqft_price)
+  }
+  if (item.length) {
+    if (item.length_prices) {
+      try {
+        const lengthPrices =
+          typeof item.length_prices === 'string' ? JSON.parse(item.length_prices) : item.length_prices
+        if (lengthPrices && lengthPrices[item.length.toString()] !== undefined) {
+          price = parseFloat(lengthPrices[item.length.toString()])
+        } else if (item.length_base_price && item.length_increment_price) {
+          price =
+            parseFloat(item.length_base_price) +
+            (parseInt(item.length, 10) - 1) * parseFloat(item.length_increment_price)
+        }
+      } catch {
+        if (item.length_base_price && item.length_increment_price) {
+          price =
+            parseFloat(item.length_base_price) +
+            (parseInt(item.length, 10) - 1) * parseFloat(item.length_increment_price)
+        }
+      }
+    } else if (item.length_base_price && item.length_increment_price) {
+      price =
+        parseFloat(item.length_base_price) +
+        (parseInt(item.length, 10) - 1) * parseFloat(item.length_increment_price)
+    }
+    return Math.max(0, price * qty)
+  }
+  if (item.is_packaged && item.pack_size) {
+    price = price * parseFloat(item.pack_size)
+  }
+  return Math.max(0, price * qty)
+}
+
+const fireGoogleAdsAddToCart = (product) => {
+  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+  const raw = getLineValueForConversion(product)
+  const value = raw > 0 ? Math.round(raw * 100) / 100 : 1.0
+  window.gtag('event', 'conversion', {
+    send_to: GOOGLE_ADS_ADD_TO_CART_SEND_TO,
+    value,
+    currency: 'USD',
+  })
+}
+
 const CartContext = createContext()
 
 export const useCart = () => {
@@ -73,7 +125,11 @@ export const CartProvider = ({ children }) => {
         return [...prevCart, { ...product, quantity: product.quantity || 1 }]
       }
     })
-    
+
+    if (!silent) {
+      fireGoogleAdsAddToCart(product)
+    }
+
     // Check if product has a gift product and add it automatically
     if (product.gift_product_id) {
       try {
