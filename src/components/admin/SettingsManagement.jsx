@@ -1,6 +1,43 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 
+const DEFAULT_PAGE_RULES_TEMPLATE = `[
+  // Thank-you sayfasinda conversion tetikle
+  {
+    "path": "/thank-you",
+    "event": "conversion",
+    "params": { "send_to": "AW-17685411407/REPLACE_LABEL" },
+    "oncePerSession": false
+  },
+  // Tum urun detay sayfalarinda view_item event'i
+  {
+    "pathPrefix": "/product/",
+    "event": "view_item",
+    "params": { "send_to": "AW-17685411407/view_item" }
+  }
+]`
+
+const DEFAULT_CLICK_RULES_TEMPLATE = `[
+  // Urun linkine tiklayinca conversion tetikle
+  {
+    "selector": "a[href*='/product/']",
+    "event": "conversion",
+    "params": { "send_to": "AW-17685411407/product_click" }
+  },
+  // Checkout submit tusuna tiklayinca begin_checkout tetikle
+  {
+    "selector": "button[type='submit']",
+    "event": "begin_checkout",
+    "params": {}
+  }
+]`
+
+const stripJsonComments = (text) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .trim()
+
 const SettingsManagement = () => {
   const [settings, setSettings] = useState({})
   const [loading, setLoading] = useState(true)
@@ -16,8 +53,8 @@ const SettingsManagement = () => {
   const [whatsappNumber, setWhatsappNumber] = useState('15167741808')
   const [phoneNumber, setPhoneNumber] = useState('15167741808')
   const [googleAdsHeadTag, setGoogleAdsHeadTag] = useState('')
-  const [googleAdsPageRules, setGoogleAdsPageRules] = useState('[]')
-  const [googleAdsClickRules, setGoogleAdsClickRules] = useState('[]')
+  const [googleAdsPageRules, setGoogleAdsPageRules] = useState(DEFAULT_PAGE_RULES_TEMPLATE)
+  const [googleAdsClickRules, setGoogleAdsClickRules] = useState(DEFAULT_CLICK_RULES_TEMPLATE)
 
   useEffect(() => {
     fetchSettings()
@@ -42,8 +79,8 @@ const SettingsManagement = () => {
       setWhatsappNumber(data.whatsapp_number || '15167741808')
       setPhoneNumber(data.phone_number || '15167741808')
       setGoogleAdsHeadTag(data.google_ads_head_tag || '')
-      setGoogleAdsPageRules(data.google_ads_page_rules || '[]')
-      setGoogleAdsClickRules(data.google_ads_click_rules || '[]')
+      setGoogleAdsPageRules(data.google_ads_page_rules || DEFAULT_PAGE_RULES_TEMPLATE)
+      setGoogleAdsClickRules(data.google_ads_click_rules || DEFAULT_CLICK_RULES_TEMPLATE)
     } catch (error) {
       console.error('Error fetching settings:', error)
       setSettings({})
@@ -123,8 +160,8 @@ const SettingsManagement = () => {
 
   const handleSaveGoogleAdsRules = async () => {
     try {
-      JSON.parse(googleAdsPageRules || '[]')
-      JSON.parse(googleAdsClickRules || '[]')
+      JSON.parse(stripJsonComments(googleAdsPageRules || '[]'))
+      JSON.parse(stripJsonComments(googleAdsClickRules || '[]'))
     } catch (error) {
       alert('Rules JSON format is invalid. Please check syntax.')
       return
@@ -333,7 +370,7 @@ const SettingsManagement = () => {
               onChange={(e) => setGoogleAdsPageRules(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
               rows="8"
-              placeholder={`[\n  {\n    "path": "/thank-you",\n    "event": "conversion",\n    "params": { "send_to": "AW-XXXX/abc123" },\n    "oncePerSession": false\n  },\n  {\n    "pathPrefix": "/product/",\n    "event": "view_item",\n    "params": { "send_to": "AW-XXXX/view" }\n  }\n]`}
+              placeholder={DEFAULT_PAGE_RULES_TEMPLATE}
             />
           </div>
           <div>
@@ -343,7 +380,7 @@ const SettingsManagement = () => {
               onChange={(e) => setGoogleAdsClickRules(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
               rows="8"
-              placeholder={`[\n  {\n    "selector": "a[href*='/product/']",\n    "event": "conversion",\n    "params": { "send_to": "AW-XXXX/clickProduct" }\n  },\n  {\n    "selector": "button[type='submit']",\n    "event": "begin_checkout",\n    "params": {}\n  }\n]`}
+              placeholder={DEFAULT_CLICK_RULES_TEMPLATE}
             />
           </div>
           <button

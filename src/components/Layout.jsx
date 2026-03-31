@@ -8,6 +8,12 @@ import PageTransition from './PageTransition'
 import { useCart } from '../context/CartContext'
 import { useSettings } from '../context/SettingsContext'
 
+const stripJsonComments = (text) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .trim()
+
 const Layout = ({ children }) => {
   const { isCartOpen, closeCart } = useCart()
   const { pathname } = useLocation()
@@ -62,7 +68,7 @@ const Layout = ({ children }) => {
     if (!googleAdsPageRules || !googleAdsPageRules.trim()) return
     let rules = []
     try {
-      const parsed = JSON.parse(googleAdsPageRules)
+      const parsed = JSON.parse(stripJsonComments(googleAdsPageRules))
       rules = Array.isArray(parsed) ? parsed : []
     } catch {
       return
@@ -95,7 +101,7 @@ const Layout = ({ children }) => {
     if (!googleAdsClickRules || !googleAdsClickRules.trim()) return undefined
     let rules = []
     try {
-      const parsed = JSON.parse(googleAdsClickRules)
+      const parsed = JSON.parse(stripJsonComments(googleAdsClickRules))
       rules = Array.isArray(parsed) ? parsed : []
     } catch {
       return undefined

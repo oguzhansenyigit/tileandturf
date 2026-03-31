@@ -1,6 +1,6 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /
+  RewriteBase /66
   
   # robots.txt - Allow direct file access OR generate via API
   RewriteCond %{REQUEST_URI} ^/robots\.txt$ [NC]
@@ -12,10 +12,10 @@
   RewriteRule ^api/ - [L]
   
   # React Router - Only for non-file, non-directory requests
-  RewriteRule ^index\.html$ - [L]
+  RewriteRule ^index\.(html|php)$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
+  RewriteRule . /index.php [L]
 </IfModule>
 
 # Prevent directory listing
