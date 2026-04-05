@@ -28,8 +28,14 @@ $distIndex = __DIR__ . '/dist/index.html';
 if (!is_file($distIndex)) {
     http_response_code(503);
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Build required</title></head><body>';
-    echo '<p>Production build missing. Run <code>npm run build</code> and upload the <code>dist</code> folder to the server.</p>';
+    $path = htmlspecialchars(__DIR__ . '/dist/index.html', ENT_QUOTES, 'UTF-8');
+    echo '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>dist klasörü yok</title>';
+    echo '<style>body{font-family:system-ui,sans-serif;max-width:42rem;margin:2rem auto;padding:0 1rem;line-height:1.5}</style></head><body>';
+    echo '<h1>Production build bulunamadı</h1>';
+    echo '<p><strong>Bilgisayarınızda</strong> proje klasöründe şunu çalıştırın: <code>npm run build</code></p>';
+    echo '<p>Oluşan <strong>dist</strong> klasörünün tamamını sunucuya yükleyin — <strong>index.php ile aynı dizinde</strong> olmalı (yani <code>dist/index.html</code> şu yolu bulabilmeli).</p>';
+    echo '<p>Beklenen dosya: <code>' . $path . '</code></p>';
+    echo '<p><small>İçinde şunlar olmalı: <code>dist/index.html</code>, <code>dist/assets/</code> (JS/CSS)</small></p>';
     echo '</body></html>';
     exit;
 }
