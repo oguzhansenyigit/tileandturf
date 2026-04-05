@@ -1,14 +1,15 @@
 <?php
+/**
+ * Production shell: serves Vite build output (dist/index.html).
+ * Do NOT reference /src/main.jsx here — that path only exists in Vite dev server.
+ */
 $googleAdsHeadTag = '';
 
-// Server-side injection so Google crawlers can detect tags in raw HTML.
-// Use the same DB connection config as API to avoid mismatch.
 try {
     ob_start();
     require_once __DIR__ . '/api/config.php';
     ob_end_clean();
 
-    // Ensure this page is served as HTML even if config sets JSON headers.
     header('Content-Type: text/html; charset=UTF-8');
 
     if (isset($conn) && $conn instanceof mysqli && !$conn->connect_error) {
@@ -20,46 +21,28 @@ try {
         $conn->close();
     }
 } catch (Throwable $e) {
-    // Fail silently to avoid breaking page rendering.
+    // Continue without admin head injection
 }
-?>
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-WT2MHGP7');</script>
-    <!-- End Google Tag Manager -->
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tile and Turf - Building Materials</title>
-    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick.min.css"/>
-    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick-theme.min.css"/>
-    <!-- Google tag (gtag.js) - Google Ads base tag -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17685411407"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'AW-17685411407');
-    </script>
-    <?php
-      // Stored tag HTML should be trusted only for admin users.
-      if (!empty($googleAdsHeadTag)) {
-          echo $googleAdsHeadTag . "\n";
-      }
-    ?>
-  </head>
-  <body>
-    <!-- Google Tag Manager (noscript) -->
-    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WT2MHGP7"
-    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+
+$distIndex = __DIR__ . '/dist/index.html';
+if (!is_file($distIndex)) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Build required</title></head><body>';
+    echo '<p>Production build missing. Run <code>npm run build</code> and upload the <code>dist</code> folder to the server.</p>';
+    echo '</body></html>';
+    exit;
+}
+
+$html = file_get_contents($distIndex);
+if ($html === false) {
+    http_response_code(500);
+    echo 'Failed to read dist/index.html';
+    exit;
+}
+
+if (!empty($googleAdsHeadTag)) {
+    $html = str_replace('</head>', $googleAdsHeadTag . "\n</head>", $html);
+}
+
+echo $html;
