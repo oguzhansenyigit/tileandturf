@@ -57,23 +57,30 @@ const OrderConfirmation = () => {
     fetchOrder()
   }, [orderId])
 
+  // Purchase conversion: inject snippet into <head> (thank-you / order-confirmation)
   useEffect(() => {
     if (!order) return
-    if (typeof window === 'undefined' || typeof window.gtag !== 'function') return
+    if (typeof document === 'undefined') return
 
     const transactionId = String(order.order_number || `ORD-${order.id}`)
     const firedKey = `google_ads_purchase_fired_${transactionId}`
     if (localStorage.getItem(firedKey) === '1') return
+    if (document.getElementById('google-ads-purchase-conversion')) return
 
     const value = parseFloat(order.total) || 1.0
-    window.gtag('event', 'conversion', {
-      send_to: GOOGLE_ADS_PURCHASE_SEND_TO,
-      value,
-      currency: 'TRY',
-      transaction_id: transactionId,
-      // new_customer: true/false can be set here if you track it
-    })
-
+    const script = document.createElement('script')
+    script.id = 'google-ads-purchase-conversion'
+    script.text = `
+      if (typeof gtag === 'function') {
+        gtag('event', 'conversion', {
+          send_to: '${GOOGLE_ADS_PURCHASE_SEND_TO}',
+          value: ${JSON.stringify(value)},
+          currency: 'TRY',
+          transaction_id: ${JSON.stringify(transactionId)}
+        });
+      }
+    `
+    document.head.appendChild(script)
     localStorage.setItem(firedKey, '1')
   }, [order])
 
