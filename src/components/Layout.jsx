@@ -17,7 +17,7 @@ const stripJsonComments = (text) =>
 const Layout = ({ children }) => {
   const { isCartOpen, closeCart } = useCart()
   const { pathname } = useLocation()
-  const { googleAdsHeadTag, googleAdsPageRules, googleAdsClickRules } = useSettings()
+  const { headTrackingSnippets, googleAdsPageRules, googleAdsClickRules } = useSettings()
 
   useEffect(() => {
     // Prevent scroll jump on page refresh
@@ -33,12 +33,12 @@ const Layout = ({ children }) => {
     const existing = document.querySelectorAll('[data-dynamic-google-tag="1"]')
     existing.forEach((el) => el.remove())
 
-    if (!googleAdsHeadTag || !googleAdsHeadTag.trim()) {
+    if (!headTrackingSnippets || !headTrackingSnippets.trim()) {
       return
     }
 
     const parser = new DOMParser()
-    const doc = parser.parseFromString(`<head>${googleAdsHeadTag}</head>`, 'text/html')
+    const doc = parser.parseFromString(`<head>${headTrackingSnippets}</head>`, 'text/html')
     const insertedNodes = []
 
     Array.from(doc.head.children).forEach((node) => {
@@ -62,7 +62,7 @@ const Layout = ({ children }) => {
     return () => {
       insertedNodes.forEach((node) => node.remove())
     }
-  }, [googleAdsHeadTag])
+  }, [headTrackingSnippets])
 
   useEffect(() => {
     if (!googleAdsPageRules || !googleAdsPageRules.trim()) return

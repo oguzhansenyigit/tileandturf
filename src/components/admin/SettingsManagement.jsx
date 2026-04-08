@@ -38,6 +38,20 @@ const stripJsonComments = (text) =>
     .replace(/^\s*\/\/.*$/gm, '')
     .trim()
 
+/** Default GA4 (edit measurement ID in Google if needed) */
+const DEFAULT_HEAD_TRACKING = `<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-PYRWVR3C8R"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-PYRWVR3C8R');
+</script>`
+
+const DEFAULT_BODY_TRACKING = `<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WT2MHGP7"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`
+
 const SettingsManagement = () => {
   const [settings, setSettings] = useState({})
   const [loading, setLoading] = useState(true)
@@ -52,7 +66,8 @@ const SettingsManagement = () => {
   const [catalogMode, setCatalogMode] = useState(false)
   const [whatsappNumber, setWhatsappNumber] = useState('15167741808')
   const [phoneNumber, setPhoneNumber] = useState('15167741808')
-  const [googleAdsHeadTag, setGoogleAdsHeadTag] = useState('')
+  const [headTrackingSnippets, setHeadTrackingSnippets] = useState(DEFAULT_HEAD_TRACKING)
+  const [bodyTrackingSnippets, setBodyTrackingSnippets] = useState(DEFAULT_BODY_TRACKING)
   const [googleAdsPageRules, setGoogleAdsPageRules] = useState(DEFAULT_PAGE_RULES_TEMPLATE)
   const [googleAdsClickRules, setGoogleAdsClickRules] = useState(DEFAULT_CLICK_RULES_TEMPLATE)
 
@@ -78,7 +93,14 @@ const SettingsManagement = () => {
       setCatalogMode(data.catalog_mode === 'active' || data.catalog_mode === '1')
       setWhatsappNumber(data.whatsapp_number || '15167741808')
       setPhoneNumber(data.phone_number || '15167741808')
-      setGoogleAdsHeadTag(data.google_ads_head_tag || '')
+      {
+        let head = (data.head_tracking_snippets || data.google_ads_head_tag || '').trim()
+        if (!head) head = DEFAULT_HEAD_TRACKING
+        setHeadTrackingSnippets(head)
+        let body = (data.body_tracking_snippets || '').trim()
+        if (!body) body = DEFAULT_BODY_TRACKING
+        setBodyTrackingSnippets(body)
+      }
       setGoogleAdsPageRules(data.google_ads_page_rules || DEFAULT_PAGE_RULES_TEMPLATE)
       setGoogleAdsClickRules(data.google_ads_click_rules || DEFAULT_CLICK_RULES_TEMPLATE)
     } catch (error) {
@@ -145,16 +167,18 @@ const SettingsManagement = () => {
     }
   }
 
-  const handleSaveGoogleAdsTag = async () => {
+  const handleSaveTrackingSnippets = async () => {
     try {
       await axios.post('/api/admin/settings.php', {
-        google_ads_head_tag: googleAdsHeadTag
+        head_tracking_snippets: headTrackingSnippets,
+        body_tracking_snippets: bodyTrackingSnippets,
+        google_ads_head_tag: ''
       })
-      alert('Google Ads tag saved successfully!')
+      alert('Tracking codes saved successfully!')
       fetchSettings()
     } catch (error) {
-      console.error('Error saving Google Ads tag:', error)
-      alert('Error saving Google Ads tag')
+      console.error('Error saving tracking codes:', error)
+      alert('Error saving tracking codes')
     }
   }
 
@@ -332,27 +356,42 @@ const SettingsManagement = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Google Ads / Site Verification Head Tag</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Tracking &amp; analytics (head + body)</h3>
         <p className="text-sm text-gray-600 mb-4">
-          Google Ads conversion tag, Google site verification meta tag, or similar head tags can be pasted here.
-          Saved content is automatically injected into the site head without code deployment.
+          Paste all site-wide tracking here so you do not need code deploys. Production uses <code>index.php</code> to inject these into every page.
+          Put <strong>one</strong> primary Google tag in <code>&lt;head&gt;</code> when possible (or use Google Tag Manager to load GA4, Ads, etc.).
         </p>
         <div className="space-y-4">
           <div>
-            <label className="block text-gray-700 font-semibold mb-2">Head Tag Code</label>
+            <label className="block text-gray-700 font-semibold mb-2">
+              Head snippets (<code>&lt;/head&gt;</code> öncesi — gtag, GTM script, doğrulama meta)
+            </label>
             <textarea
-              value={googleAdsHeadTag}
-              onChange={(e) => setGoogleAdsHeadTag(e.target.value)}
+              value={headTrackingSnippets}
+              onChange={(e) => setHeadTrackingSnippets(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
-              rows="8"
-              placeholder={'e.g.\n<meta name="google-site-verification" content="..."/>\n<script async src="https://www.googletagmanager.com/gtag/js?id=AW-XXXX"></script>\n<script>window.dataLayer = window.dataLayer || []; function gtag(){dataLayer.push(arguments);} gtag("js", new Date()); gtag("config", "AW-XXXX");</script>'}
+              rows="12"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Varsayılan: GA4 <code>G-PYRWVR3C8R</code>. Google Ads AW / ek <code>gtag(&apos;config&apos;)</code> satırlarını aynı kutuya ekleyebilir veya GTM ile yönetebilirsiniz.
+            </p>
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">
+              Body (hemen <code>&lt;body&gt;</code> açılışından sonra — GTM noscript vb.)
+            </label>
+            <textarea
+              value={bodyTrackingSnippets}
+              onChange={(e) => setBodyTrackingSnippets(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm"
+              rows="6"
             />
           </div>
           <button
-            onClick={handleSaveGoogleAdsTag}
+            onClick={handleSaveTrackingSnippets}
             className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
           >
-            Save Google Ads Tag
+            Save tracking codes
           </button>
         </div>
       </div>

@@ -15,7 +15,8 @@ export const SettingsProvider = ({ children }) => {
   const [catalogMode, setCatalogMode] = useState(false)
   const [whatsappNumber, setWhatsappNumber] = useState('15167741808')
   const [phoneNumber, setPhoneNumber] = useState('15167741808')
-  const [googleAdsHeadTag, setGoogleAdsHeadTag] = useState('')
+  /** Merged: head_tracking_snippets || legacy google_ads_head_tag */
+  const [headTrackingSnippets, setHeadTrackingSnippets] = useState('')
   const [googleAdsPageRules, setGoogleAdsPageRules] = useState('[]')
   const [googleAdsClickRules, setGoogleAdsClickRules] = useState('[]')
   const [loading, setLoading] = useState(true)
@@ -31,12 +32,14 @@ export const SettingsProvider = ({ children }) => {
       setCatalogMode(settings.catalog_mode === 'active' || settings.catalog_mode === '1')
       const fetchedWhatsApp = settings.whatsapp_number || '15167741808'
       const fetchedPhone = settings.phone_number || '15167741808'
-      const fetchedGoogleAdsHeadTag = settings.google_ads_head_tag || ''
+      const head =
+        (settings.head_tracking_snippets || '').trim() ||
+        (settings.google_ads_head_tag || '').trim()
       const fetchedGoogleAdsPageRules = settings.google_ads_page_rules || '[]'
       const fetchedGoogleAdsClickRules = settings.google_ads_click_rules || '[]'
       setWhatsappNumber(fetchedWhatsApp)
       setPhoneNumber(fetchedPhone)
-      setGoogleAdsHeadTag(fetchedGoogleAdsHeadTag)
+      setHeadTrackingSnippets(head)
       setGoogleAdsPageRules(fetchedGoogleAdsPageRules)
       setGoogleAdsClickRules(fetchedGoogleAdsClickRules)
     } catch (error) {
@@ -53,7 +56,7 @@ export const SettingsProvider = ({ children }) => {
         catalogMode,
         whatsappNumber,
         phoneNumber,
-        googleAdsHeadTag,
+        headTrackingSnippets,
         googleAdsPageRules,
         googleAdsClickRules,
         loading,

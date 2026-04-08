@@ -3,7 +3,8 @@
  * Production shell: serves Vite build output.
  * Looks for built index.html in common deploy layouts.
  */
-$googleAdsHeadTag = '';
+$headTrackingSnippets = '';
+$bodyTrackingSnippets = '';
 
 try {
     ob_start();
@@ -13,11 +14,19 @@ try {
     header('Content-Type: text/html; charset=UTF-8');
 
     if (isset($conn) && $conn instanceof mysqli && !$conn->connect_error) {
-        $sql = "SELECT setting_value FROM settings WHERE setting_key = 'google_ads_head_tag' LIMIT 1";
+        $sql = "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('head_tracking_snippets','body_tracking_snippets','google_ads_head_tag')";
         $res = $conn->query($sql);
-        if ($res && $row = $res->fetch_assoc()) {
-            $googleAdsHeadTag = (string)($row['setting_value'] ?? '');
+        $map = [];
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $map[$row['setting_key']] = (string)($row['setting_value'] ?? '');
+            }
         }
+        $headTrackingSnippets = trim($map['head_tracking_snippets'] ?? '');
+        if ($headTrackingSnippets === '') {
+            $headTrackingSnippets = trim($map['google_ads_head_tag'] ?? '');
+        }
+        $bodyTrackingSnippets = trim($map['body_tracking_snippets'] ?? '');
         $conn->close();
     }
 } catch (Throwable $e) {
@@ -98,8 +107,12 @@ if ($html === false) {
     exit;
 }
 
-if (!empty($googleAdsHeadTag)) {
-    $html = str_replace('</head>', $googleAdsHeadTag . "\n</head>", $html);
+if ($headTrackingSnippets !== '') {
+    $html = str_replace('</head>', $headTrackingSnippets . "\n</head>", $html);
+}
+
+if ($bodyTrackingSnippets !== '') {
+    $html = preg_replace('#<body[^>]*>#i', '$0' . "\n" . $bodyTrackingSnippets . "\n", $html, 1);
 }
 
 echo $html;
