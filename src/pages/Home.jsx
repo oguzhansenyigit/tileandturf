@@ -8,6 +8,7 @@ import WhoWeAre from '../components/WhoWeAre'
 const Home = () => {
   return (
     <div>
+      <h1 className="sr-only">Tile and Turf Outdoor Flooring Systems</h1>
       <HeroSlider />
       <CategoryGrid />
       <Tagline />

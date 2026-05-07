@@ -32,36 +32,15 @@ const HeroSlider = () => {
           .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
         
         if (activeSliders.length > 0) {
-          setSlides(activeSliders.map(slider => {
-            // Ensure image URL is properly formatted
-            let imageUrl = slider.image || ''
-            
-            // If empty, skip
-            if (!imageUrl) {
-              return null
-            }
-            
-            // If it's already an absolute URL (http/https), use as is
-            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-              // Already absolute, use as is
-            }
-            // If relative path doesn't start with /, add it
-            else if (!imageUrl.startsWith('/')) {
-              imageUrl = '/' + imageUrl
-            }
-            // If it starts with /api/, it should work but we can also try to add cache-busting
-            // For incognito mode, we might need to ensure the path is correct
-            
-            return {
-              image: imageUrl,
-              title: slider.title,
-              description: slider.description || '',
-              buttonText: slider.button_text || 'Shop Now',
-              link: slider.button_link || '/products',
-              positionX: slider.image_position_x || 'center',
-              positionY: slider.image_position_y || 'center'
-            }
-          }).filter(slide => slide !== null))
+          setSlides(activeSliders.map(slider => ({
+            image: slider.image,
+            title: slider.title,
+            description: slider.description || '',
+            buttonText: slider.button_text || 'Shop Now',
+            link: slider.button_link || '/products',
+            positionX: slider.image_position_x || 'center',
+            positionY: slider.image_position_y || 'center'
+          })))
         } else {
           // Fallback to default slides
           setSlides([
@@ -208,9 +187,9 @@ const HeroSlider = () => {
               
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <div className="text-center text-white px-4 max-w-4xl">
-                  <h1 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-lg">
+                  <h2 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-lg">
                     {slide.title}
-                  </h1>
+                  </h2>
                   {slide.description && (
                     <p className="text-lg md:text-xl mb-8 drop-shadow-md max-w-2xl mx-auto">
                       {slide.description}

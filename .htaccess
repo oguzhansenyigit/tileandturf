@@ -1,11 +1,18 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /66
+
+  # Force HTTPS and single host (non-www) for SEO consistency
+  RewriteCond %{HTTP_HOST} ^www\.tileandturf\.com$ [NC]
+  RewriteRule ^ https://tileandturf.com%{REQUEST_URI} [R=301,L]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP_HOST} ^(www\.)?tileandturf\.com$ [NC]
+  RewriteRule ^ https://tileandturf.com%{REQUEST_URI} [R=301,L]
   
-  # robots.txt - Allow direct file access OR generate via API
-  RewriteCond %{REQUEST_URI} ^/robots\.txt$ [NC]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteRule ^robots\.txt$ /api/robots.php [L,QSA]
+  # robots.txt - Always serve dynamic content
+  RewriteRule ^robots\.txt$ api/robots.php [L,QSA,NC]
+
+  # sitemap.xml - Always serve dynamic content (avoid stale static file conflicts)
+  RewriteRule ^sitemap\.xml$ api/sitemap.php [L,QSA,NC]
   
   # API routes - MUST be before React Router catch-all
   RewriteCond %{REQUEST_URI} ^/api/ [NC]
