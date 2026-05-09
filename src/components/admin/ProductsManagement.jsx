@@ -2,11 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { createSlug } from '../../utils/slug'
 
-const getOptionKey = (option) =>
-  typeof option === 'string' ? option : (option?.label ?? '')
-const getOptionLabel = (option) =>
-  typeof option === 'string' ? option : (option?.label ?? '')
-
 const ProductsManagement = () => {
   const [products, setProducts] = useState([])
   const [allProducts, setAllProducts] = useState([]) // Store all products for filtering
@@ -37,8 +32,6 @@ const ProductsManagement = () => {
     weight_lbs: '',
     variations: '',
     selectedVariations: [],
-    productVariations: [],
-    productVariationSearch: '',
     gallery_images: [],
     comparison_before: '',
     comparison_after: '',
@@ -59,7 +52,6 @@ const ProductsManagement = () => {
     pack_size: 1,
     pcs_per_box: '',
     show_unit_price: false,
-    show_price_unit_kit: false,
     gift_product_id: '',
     is_hidden: false,
     order_index: 0
@@ -69,10 +61,6 @@ const ProductsManagement = () => {
   const [giftProductSearch, setGiftProductSearch] = useState('')
   const [giftProductSearchResults, setGiftProductSearchResults] = useState([])
   const [showGiftProductResults, setShowGiftProductResults] = useState(false)
-  const [showSorting, setShowSorting] = useState(false)
-  const [sortingCategory, setSortingCategory] = useState('all')
-  const [sortingProducts, setSortingProducts] = useState([])
-  const [draggedItem, setDraggedItem] = useState(null)
   const datasheetPdfInputRef = useRef(null)
   const brochurePdfInputRef = useRef(null)
 
@@ -95,18 +83,6 @@ const ProductsManagement = () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showGiftProductResults])
-
-  // Open edit form when navigated from diagnostics (?section=products&edit=123)
-  useEffect(() => {
-    if (loading || !allProducts.length) return
-    const editId = window.__adminEditProductId
-    if (typeof editId !== 'number' || !editId) return
-    window.__adminEditProductId = undefined
-    const product = allProducts.find(p => p.id == editId)
-    if (product) {
-      handleEditProduct(product)
-    }
-  }, [loading, allProducts])
 
   // Filter products based on search term and category
   useEffect(() => {
@@ -139,9 +115,9 @@ const ProductsManagement = () => {
     try {
       // For admin, get all products including inactive and hidden
       const response = await axios.get('/api/products.php?admin=true')
-        const productsData = Array.isArray(response.data) ? response.data : []
-        setAllProducts(productsData)
-        setProducts(productsData)
+      const productsData = Array.isArray(response.data) ? response.data : []
+      setAllProducts(productsData)
+      setProducts(productsData)
     } catch (error) {
       console.error('Error fetching products:', error)
       // Fallback: get all products
@@ -197,34 +173,14 @@ const ProductsManagement = () => {
     formData.append('file', file)
     
     try {
-      console.log('📤 Uploading PDF:', {
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        type: type
-      })
-
-      const response = await axios.post('/api/upload-pdf.php', formData, {
-        // Don't set Content-Type manually - axios will set it automatically with boundary
-        timeout: 300000, // 5 minutes timeout for large files
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
-      
-      console.log('📥 PDF upload response:', response.data)
+      // Don't set Content-Type manually - axios will set it automatically with boundary for FormData
+      const response = await axios.post('/api/upload-pdf.php', formData)
       
       if (response.data && response.data.success) {
-        const pdfUrl = response.data.url
-        // Ensure URL starts with / for absolute path
-        const finalUrl = pdfUrl.startsWith('/') ? pdfUrl : '/' + pdfUrl
-        
         // Use functional update to ensure we have the latest state
         setProductForm(prevForm => ({
           ...prevForm,
-          [type]: finalUrl
+          [type]: response.data.url
         }))
         
         // Clear file input
@@ -232,38 +188,15 @@ const ProductsManagement = () => {
           inputRef.current.value = ''
         }
         
-        console.log('✅ PDF uploaded successfully:', finalUrl)
         alert('PDF uploaded successfully!')
       } else {
         const errorMsg = response.data?.error || 'Unknown error occurred'
-        const debugInfo = response.data?.debug || {}
-        console.error('❌ PDF upload error:', {
-          error: errorMsg,
-          debug: debugInfo,
-          fullResponse: response.data
-        })
-        alert('Error uploading PDF: ' + errorMsg + (debugInfo ? '\n\nDebug: ' + JSON.stringify(debugInfo) : ''))
+        alert('Error uploading PDF: ' + errorMsg)
       }
     } catch (error) {
-      console.error('❌ PDF upload exception:', {
-        error: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers,
-        config: error.config
-      })
-      
-      const errorMsg = error.response?.data?.error || 
-                      error.response?.data?.message || 
-                      error.message || 
-                      'Failed to upload PDF. Please try again.'
-      
-      const debugInfo = error.response?.data?.debug
-      const fullErrorMsg = debugInfo 
-        ? `${errorMsg}\n\nDebug Info:\n${JSON.stringify(debugInfo, null, 2)}`
-        : errorMsg
-        
-      alert('Error uploading PDF: ' + fullErrorMsg)
+      console.error('Error uploading PDF:', error)
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to upload PDF. Please try again.'
+      alert('Error uploading PDF: ' + errorMsg)
     } finally {
       setUploadingPdf(null)
     }
@@ -440,39 +373,6 @@ const ProductsManagement = () => {
   const handleProductSubmit = async (e) => {
     e.preventDefault()
     try {
-      // Merge product variations into variations JSON
-      let variationsData = {}
-      if (productForm.variations && productForm.variations !== '' && productForm.variations !== '{}') {
-        try {
-          const parsed = typeof productForm.variations === 'string' 
-            ? JSON.parse(productForm.variations) 
-            : productForm.variations
-          // Only use parsed data if it's an object
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            variationsData = parsed
-          }
-        } catch (e) {
-          console.error('Error parsing variations:', e)
-          variationsData = {}
-        }
-      }
-      
-      // Add product variations
-      if (productForm.productVariations && productForm.productVariations.length > 0) {
-        variationsData.product_variations = productForm.productVariations.map(pv => ({
-          product_id: pv.product_id,
-          price_adjustment: pv.price_adjustment || 0
-        }))
-        console.log('Adding product variations:', variationsData.product_variations)
-      } else {
-        // Remove product_variations if empty
-        if (variationsData.product_variations) {
-          delete variationsData.product_variations
-        }
-      }
-      
-      console.log('Final variations data:', variationsData)
-
       const productData = {
         ...productForm,
         price: parseFloat(productForm.price),
@@ -482,7 +382,6 @@ const ProductsManagement = () => {
         slug: productForm.slug || productForm.name.toLowerCase().replace(/\s+/g, '-'),
         gallery_images: Array.isArray(productForm.gallery_images) ? JSON.stringify(productForm.gallery_images) : productForm.gallery_images,
         related_products: Array.isArray(productForm.related_products) ? JSON.stringify(productForm.related_products) : productForm.related_products,
-        variations: JSON.stringify(variationsData),
         sqft_enabled: productForm.sqft_enabled ? 1 : 0,
         sqft_price: productForm.sqft_price ? parseFloat(productForm.sqft_price) : null,
         length_enabled: productForm.length_enabled ? 1 : 0,
@@ -492,24 +391,17 @@ const ProductsManagement = () => {
         pack_size: productForm.is_packaged ? parseFloat(productForm.pack_size) || 1 : null,
         pcs_per_box: productForm.is_packaged && (productForm.pcs_per_box !== '' && productForm.pcs_per_box != null) ? (isNaN(parseInt(productForm.pcs_per_box)) ? null : parseInt(productForm.pcs_per_box)) : null,
         show_unit_price: productForm.show_unit_price ? 1 : 0,
-        show_price_unit_kit: productForm.show_price_unit_kit ? 1 : 0,
         call_for_pricing: productForm.call_for_pricing ? 1 : 0,
         gift_product_id: productForm.gift_product_id ? parseInt(productForm.gift_product_id) : null,
         is_hidden: productForm.is_hidden ? 1 : 0,
         order_index: productForm.order_index !== undefined && productForm.order_index !== '' ? parseInt(productForm.order_index) || 0 : 0
       }
       
-      // Remove productVariations from productData (not needed in API)
-      delete productData.productVariations
-      delete productData.productVariationSearch
-
       // Debug log
       console.log('Submitting product data:', {
         is_packaged: productData.is_packaged,
         pcs_per_box_form: productForm.pcs_per_box,
-        pcs_per_box_data: productData.pcs_per_box,
-        variations: productData.variations,
-        productVariations: productForm.productVariations
+        pcs_per_box_data: productData.pcs_per_box
       })
 
       let savedProduct
@@ -539,8 +431,6 @@ const ProductsManagement = () => {
         weight_lbs: '',
         variations: '',
         selectedVariations: [],
-        productVariations: [],
-        productVariationSearch: '',
         gallery_images: [],
         comparison_before: '',
         comparison_after: '',
@@ -576,43 +466,8 @@ const ProductsManagement = () => {
 
   const handleEditProduct = (product) => {
     setEditingProduct(product)
-    let variationsData = {}
-    if (product.variations && product.variations !== '' && product.variations !== '{}') {
-      try {
-        const parsed = typeof product.variations === 'string' 
-          ? JSON.parse(product.variations) 
-          : product.variations
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          variationsData = parsed
-        }
-      } catch (e) {
-        console.error('Error parsing variations in handleEditProduct:', e)
-        variationsData = {}
-      }
-    }
-    
-    const selectedVariations = Object.keys(variationsData)
-      .filter(id => id !== 'product_variations' && !isNaN(parseInt(id)))
-      .map(id => parseInt(id))
-    
-    // Extract product variations
-    const productVariations = variationsData.product_variations || []
-    const productVariationsWithDetails = productVariations.map(pv => {
-      const fullProduct = allProducts.find(p => p.id == pv.product_id)
-      return {
-        product_id: pv.product_id,
-        product_name: fullProduct?.name || `Product #${pv.product_id}`,
-        product_image: fullProduct?.image || '',
-        price_adjustment: pv.price_adjustment || 0
-      }
-    })
-    
-    console.log('Loading product for edit:', {
-      productId: product.id,
-      variationsRaw: product.variations,
-      variationsParsed: variationsData,
-      productVariations: productVariationsWithDetails
-    })
+    const variationsData = product.variations ? (typeof product.variations === 'string' ? JSON.parse(product.variations) : product.variations) : {}
+    const selectedVariations = Object.keys(variationsData).map(id => parseInt(id))
     
     setProductForm({
       name: product.name || '',
@@ -642,7 +497,6 @@ const ProductsManagement = () => {
       pack_size: product.pack_size || 1,
       pcs_per_box: (product.pcs_per_box != null && product.pcs_per_box !== '') ? product.pcs_per_box : '',
       show_unit_price: product.show_unit_price == 1 || product.show_unit_price === true,
-      show_price_unit_kit: product.show_price_unit_kit == 1 || product.show_price_unit_kit === true,
       meta_keywords: product.meta_keywords || '',
       catalog_mode: product.catalog_mode || 'no',
       call_for_pricing: product.call_for_pricing == 1 || product.call_for_pricing === true,
@@ -665,72 +519,6 @@ const ProductsManagement = () => {
     }
   }
 
-  // Product Sorting Functions
-  const handleOpenSorting = (categoryId = 'all') => {
-    setSortingCategory(categoryId)
-    let productsToSort = [...allProducts]
-    
-    if (categoryId !== 'all') {
-      productsToSort = productsToSort.filter(product => 
-        product.category_id == categoryId || product.category_id === parseInt(categoryId)
-      )
-    }
-    
-    // Sort by order_index
-    productsToSort.sort((a, b) => {
-      const aIndex = a.order_index !== undefined && a.order_index !== null ? a.order_index : 999999
-      const bIndex = b.order_index !== undefined && b.order_index !== null ? b.order_index : 999999
-      return aIndex - bIndex
-    })
-    
-    setSortingProducts(productsToSort)
-    setShowSorting(true)
-  }
-
-  const handleDragStart = (e, index) => {
-    setDraggedItem(index)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault()
-    if (draggedItem === null) return
-
-    const newProducts = [...sortingProducts]
-    const draggedProduct = newProducts[draggedItem]
-    
-    newProducts.splice(draggedItem, 1)
-    newProducts.splice(dropIndex, 0, draggedProduct)
-    
-    setSortingProducts(newProducts)
-    setDraggedItem(null)
-  }
-
-  const handleSaveSorting = async () => {
-    try {
-      const productsToUpdate = sortingProducts.map((product, index) => ({
-        id: product.id,
-        order_index: index
-      }))
-
-      await axios.post('/api/admin/update-product-order.php', {
-        products: productsToUpdate
-      })
-
-      alert('Product order updated successfully!')
-      setShowSorting(false)
-      fetchProducts()
-    } catch (error) {
-      console.error('Error saving product order:', error)
-      alert('Error saving product order')
-    }
-  }
-
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -743,54 +531,46 @@ const ProductsManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Product Management</h2>
-        <div className="flex gap-3">
-          <button
-            onClick={() => handleOpenSorting('all')}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            Sort Products
-          </button>
-          <button
-            onClick={() => {
-              setShowProductForm(true)
-              setEditingProduct(null)
-              setProductForm({
-                name: '',
-                slug: '',
-                description: '',
-                price: '',
-                image: '',
-                category_id: '',
-                stock: '',
-                weight_lbs: '',
-                variations: '',
-                selectedVariations: [],
-                gallery_images: [],
-                comparison_before: '',
-                comparison_after: '',
-                related_products: [],
-                datasheet_pdf: '',
-                brochure_pdf: '',
-                meta_title: '',
-                meta_description: '',
-                meta_keywords: '',
-                catalog_mode: 'no',
-                call_for_pricing: false,
-                sqft_enabled: false,
-                sqft_price: '',
-                length_enabled: false,
-                length_base_price: '',
-                length_increment_price: '',
-                is_packaged: false,
-                pack_size: 1,
-                order_index: 0
-              })
-            }}
-            className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            Add Product
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setShowProductForm(true)
+            setEditingProduct(null)
+            setProductForm({
+              name: '',
+              slug: '',
+              description: '',
+              price: '',
+              image: '',
+              category_id: '',
+              stock: '',
+              weight_lbs: '',
+              variations: '',
+              selectedVariations: [],
+              gallery_images: [],
+              comparison_before: '',
+              comparison_after: '',
+              related_products: [],
+              datasheet_pdf: '',
+              brochure_pdf: '',
+              meta_title: '',
+              meta_description: '',
+              meta_keywords: '',
+              catalog_mode: 'no',
+              call_for_pricing: false,
+              sqft_enabled: false,
+              sqft_price: '',
+              length_enabled: false,
+              length_base_price: '',
+              length_increment_price: '',
+              is_packaged: false,
+              pack_size: 1,
+              order_index: 0
+            })
+          }}
+          className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+        >
+          Add Product
+        </button>
       </div>
 
       {/* Search and Filter Section */}
@@ -1112,18 +892,6 @@ const ProductsManagement = () => {
                       />
                       <span className="text-gray-700 font-semibold">Show unit price on frontend</span>
                     </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={productForm.show_price_unit_kit}
-                        onChange={(e) => setProductForm({ ...productForm, show_price_unit_kit: e.target.checked })}
-                        className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
-                      />
-                      <span className="text-gray-700 font-semibold">Show /kit after unit price</span>
-                    </label>
-                    <p className="text-xs text-gray-500">
-                      When checked, unit price will display as "$X.XX/kit" (e.g., $1.50/kit)
-                    </p>
                     <p className="text-xs text-gray-500">
                       {productForm.is_packaged ? (
                         <>
@@ -1214,130 +982,21 @@ const ProductsManagement = () => {
               />
             </div>
 
-            {/* Product-Based Variations */}
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">Product Variations (Show Other Products as Options)</label>
-              <p className="text-xs text-gray-500 mb-3">Add other products as variation options. These will be displayed as product cards with image and title.</p>
-              
-              <div className="border border-gray-300 rounded-lg p-4">
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Add Product as Variation</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={productForm.productVariationSearch || ''}
-                      onChange={(e) => {
-                        const selectedProductId = e.target.value
-                        if (selectedProductId) {
-                          const selectedProduct = allProducts.find(p => p.id == selectedProductId)
-                          if (selectedProduct) {
-                            const currentVariations = productForm.productVariations || []
-                            // Check if product already added
-                            if (!currentVariations.some(v => v.product_id == selectedProductId)) {
-                              setProductForm({
-                                ...productForm,
-                                productVariations: [...currentVariations, {
-                                  product_id: parseInt(selectedProductId),
-                                  product_name: selectedProduct.name,
-                                  product_image: selectedProduct.image,
-                                  price_adjustment: 0
-                                }],
-                                productVariationSearch: ''
-                              })
-                            } else {
-                              alert('This product is already added as a variation')
-                              setProductForm({ ...productForm, productVariationSearch: '' })
-                            }
-                          }
-                        }
-                      }}
-                      className="flex-1 border border-gray-300 rounded-lg px-4 py-2"
-                    >
-                      <option value="">Select a product to add as variation...</option>
-                      {allProducts
-                        .filter(p => !editingProduct || p.id !== editingProduct.id)
-                        .map(product => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} - ${(parseFloat(product.price) || 0).toFixed(2)}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-
-                {productForm.productVariations && productForm.productVariations.length > 0 && (
-                  <div className="space-y-3">
-                    {productForm.productVariations.map((pv, idx) => {
-                      const product = allProducts.find(p => p.id == pv.product_id)
-                      return (
-                        <div key={idx} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <img
-                            src={pv.product_image || product?.image || '/placeholder.jpg'}
-                            alt={pv.product_name}
-                            className="w-16 h-16 object-cover rounded"
-                            onError={(e) => { e.target.src = '/placeholder.jpg' }}
-                          />
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-800">{pv.product_name}</div>
-                            <div className="text-sm text-gray-500">Product ID: {pv.product_id}</div>
-                          </div>
-                          <div className="w-32">
-                            <label className="block text-xs text-gray-600 mb-1">Price Adjustment</label>
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={pv.price_adjustment || 0}
-                              onChange={(e) => {
-                                const newProductVariations = [...productForm.productVariations]
-                                newProductVariations[idx].price_adjustment = parseFloat(e.target.value) || 0
-                                setProductForm({
-                                  ...productForm,
-                                  productVariations: newProductVariations
-                                })
-                              }}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                              placeholder="0.00"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newProductVariations = productForm.productVariations.filter((_, i) => i !== idx)
-                              setProductForm({
-                                ...productForm,
-                                productVariations: newProductVariations
-                              })
-                            }}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Standard Variations */}
+            {/* Variations */}
             <div>
-              <label className="block text-gray-700 font-semibold mb-2">Standard Variations</label>
+              <label className="block text-gray-700 font-semibold mb-2">Product Variations</label>
               <p className="text-xs text-gray-500 mb-3">Select variations from the variation library</p>
-              <div className="border border-gray-300 rounded-lg p-4 max-h-96 overflow-y-auto">
+              <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto">
                 {variations && variations.length > 0 ? (
                   variations.map((variation) => {
                     const variationId = variation.id
                     const isSelected = productForm.selectedVariations?.includes(variationId) || false
                     const variationData = productForm.variations ? (typeof productForm.variations === 'string' ? JSON.parse(productForm.variations) : productForm.variations) : {}
-                    const variationOptions = variationData[variationId] || {}
-                    const availableOptions = Array.isArray(variation.options) ? variation.options : []
+                    const hasVariationData = variationData[variationId] !== undefined
                     
                     return (
-                      <div key={variation.id} className="mb-6 pb-6 border-b border-gray-200 last:border-0">
-                        <div className="flex items-center justify-between mb-3">
-                          <label className="flex items-center space-x-3 cursor-pointer flex-1">
+                      <div key={variation.id} className="mb-4 pb-4 border-b border-gray-200 last:border-0">
+                        <label className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1348,6 +1007,7 @@ const ProductsManagement = () => {
                               
                               if (e.target.checked) {
                                 newSelected = [...selected, variationId]
+                                // Initialize with empty object for variation options
                                 if (!newVariationsData[variationId]) {
                                   newVariationsData[variationId] = {}
                                 }
@@ -1362,124 +1022,25 @@ const ProductsManagement = () => {
                                 variations: JSON.stringify(newVariationsData)
                               })
                             }}
-                              className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
+                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                           />
-                            <div>
-                              <span className="text-base font-semibold text-gray-700">{variation.name}</span>
+                          <div className="flex-1">
+                            <span className="text-sm font-semibold text-gray-700">{variation.name}</span>
                             <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs">
                               {variation.type}
                             </span>
-                            </div>
-                          </label>
-                          {isSelected && availableOptions.length > 0 && (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newVariationsData = { ...variationData }
-                                  if (!newVariationsData[variationId]) {
-                                    newVariationsData[variationId] = {}
-                                  }
-                                  availableOptions.forEach(option => {
-                                    const key = getOptionKey(option)
-                                    if (!newVariationsData[variationId][key]) {
-                                      newVariationsData[variationId][key] = {
-                                        value: getOptionLabel(option),
-                                        price: null
-                                      }
-                                    }
-                                  })
-                                  setProductForm({
-                                    ...productForm,
-                                    variations: JSON.stringify(newVariationsData)
-                                  })
-                                }}
-                                className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                              >
-                                Select All
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newVariationsData = { ...variationData }
-                                  delete newVariationsData[variationId]
-                                  setProductForm({
-                                    ...productForm,
-                                    variations: JSON.stringify(newVariationsData)
-                                  })
-                                }}
-                                className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                              >
-                                Clear All
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {isSelected && availableOptions.length > 0 && (
-                          <div className="mt-3 bg-white border border-gray-200 rounded-lg overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-700 w-12">
-                                      <input
-                                        type="checkbox"
-                                        checked={availableOptions.every(option => variationOptions[getOptionKey(option)] !== undefined)}
-                                        onChange={(e) => {
-                                          const newVariationsData = { ...variationData }
-                                          if (!newVariationsData[variationId]) {
-                                            newVariationsData[variationId] = {}
-                                          }
-                                          
-                                          if (e.target.checked) {
-                                            availableOptions.forEach(option => {
-                                              const key = getOptionKey(option)
-                                              if (!newVariationsData[variationId][key]) {
-                                                newVariationsData[variationId][key] = {
-                                                  value: getOptionLabel(option),
-                                                  price: null
-                                                }
-                                              }
-                                            })
-                                          } else {
-                                            availableOptions.forEach(option => {
-                                              delete newVariationsData[variationId][getOptionKey(option)]
-                                            })
-                                          }
-                                          
-                                          setProductForm({
-                                            ...productForm,
-                                            variations: JSON.stringify(newVariationsData)
-                                          })
-                                        }}
-                                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                                      />
-                                    </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Option</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Display Value</th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-700">Price</th>
-                                    {variation.type === 'color' && (
-                                      <>
-                                        <th className="px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">Extra section</th>
-                                        <th className="px-3 py-2 text-left font-semibold text-gray-700 min-w-[9rem]">Section title</th>
-                                      </>
-                                    )}
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                  {availableOptions.map((option, idx) => {
-                                    const key = getOptionKey(option)
-                                    const label = getOptionLabel(option)
-                                    const isOptionSelected = variationOptions[key] !== undefined
-                                    const optionPrice = variationOptions[key]?.price ?? ''
-                                    const optionValue = variationOptions[key]?.value || label
-                                    const displayGroup = variationOptions[key]?.displayGroup
-                                    const inExtraSection = Boolean(displayGroup && String(displayGroup).trim() !== '')
+                            {isSelected && (
+                              <div className="mt-3 space-y-3 pl-6 border-l-2 border-primary">
+                                <p className="text-xs font-semibold text-gray-700 mb-2">Select which options to use for this product:</p>
+                                {Array.isArray(variation.options) && variation.options.length > 0 ? variation.options.map((option, idx) => {
+                                  const currentVariationData = variationData[variationId] || {}
+                                  const isOptionSelected = currentVariationData[option] !== undefined
+                                  const optionPrice = currentVariationData[option]?.price || ''
+                                  const optionValue = currentVariationData[option]?.value || option
                                   
                                   return (
-                                      <tr key={idx} className={`hover:bg-gray-50 ${isOptionSelected ? 'bg-blue-50/30' : ''}`}>
-                                        <td className="px-3 py-2">
+                                    <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                      <label className="flex items-center space-x-2 mb-2 cursor-pointer">
                                         <input
                                           type="checkbox"
                                           checked={isOptionSelected}
@@ -1490,12 +1051,14 @@ const ProductsManagement = () => {
                                             }
                                             
                                             if (e.target.checked) {
-                                              newVariationsData[variationId][key] = {
-                                                value: label,
+                                              // Add option with default values
+                                              newVariationsData[variationId][option] = {
+                                                value: option,
                                                 price: null
                                               }
                                             } else {
-                                              delete newVariationsData[variationId][key]
+                                              // Remove option
+                                              delete newVariationsData[variationId][option]
                                             }
                                             
                                             setProductForm({
@@ -1505,10 +1068,13 @@ const ProductsManagement = () => {
                                           }}
                                           className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                                         />
-                                        </td>
-                                        <td className="px-3 py-2 font-medium text-gray-700">{label}</td>
-                                        <td className="px-3 py-2">
-                                          {isOptionSelected ? (
+                                        <span className="text-sm font-semibold text-gray-700">{option}</span>
+                                      </label>
+                                      
+                                      {isOptionSelected && (
+                                        <div className="mt-2 space-y-2 pl-6">
+                                          <div>
+                                            <label className="text-xs text-gray-600 mb-1 block">Display Value (optional)</label>
                                             <input
                                               type="text"
                                               value={optionValue}
@@ -1517,24 +1083,22 @@ const ProductsManagement = () => {
                                                 if (!newVariationsData[variationId]) {
                                                   newVariationsData[variationId] = {}
                                                 }
-                                                if (!newVariationsData[variationId][key]) {
-                                                  newVariationsData[variationId][key] = {}
+                                                if (!newVariationsData[variationId][option]) {
+                                                  newVariationsData[variationId][option] = {}
                                                 }
-                                                newVariationsData[variationId][key].value = e.target.value || label
+                                                newVariationsData[variationId][option].value = e.target.value || option
                                                 setProductForm({
                                                   ...productForm,
                                                   variations: JSON.stringify(newVariationsData)
                                                 })
                                               }}
-                                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                                              placeholder={label}
+                                              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                                              placeholder={option}
                                             />
-                                          ) : (
-                                            <span className="text-gray-400 text-xs">—</span>
-                                          )}
-                                        </td>
-                                        <td className="px-3 py-2">
-                                          {isOptionSelected ? (
+                                            <p className="text-xs text-gray-400 mt-1">Leave empty to use default: {option}</p>
+                                          </div>
+                                          <div>
+                                            <label className="text-xs text-gray-600 mb-1 block">Price Adjustment (optional)</label>
                                             <input
                                               type="number"
                                               step="0.01"
@@ -1544,112 +1108,32 @@ const ProductsManagement = () => {
                                                 if (!newVariationsData[variationId]) {
                                                   newVariationsData[variationId] = {}
                                                 }
-                                                if (!newVariationsData[variationId][key]) {
-                                                  newVariationsData[variationId][key] = {}
+                                                if (!newVariationsData[variationId][option]) {
+                                                  newVariationsData[variationId][option] = {}
                                                 }
-                                                newVariationsData[variationId][key].price = e.target.value ? parseFloat(e.target.value) : null
+                                                newVariationsData[variationId][option].price = e.target.value ? parseFloat(e.target.value) : null
                                                 setProductForm({
                                                   ...productForm,
                                                   variations: JSON.stringify(newVariationsData)
                                                 })
                                               }}
-                                              className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
+                                              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
                                               placeholder="0.00"
                                             />
-                                          ) : (
-                                            <span className="text-gray-400 text-xs">—</span>
-                                          )}
-                                        </td>
-                                        {variation.type === 'color' && (
-                                          <>
-                                            <td className="px-3 py-2 align-top">
-                                              {isOptionSelected ? (
-                                                <label className="inline-flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={inExtraSection}
-                                                    onChange={(e) => {
-                                                      const newVariationsData = { ...variationData }
-                                                      if (!newVariationsData[variationId]) {
-                                                        newVariationsData[variationId] = {}
-                                                      }
-                                                      const cur = newVariationsData[variationId][key] || { value: label, price: null }
-                                                      if (e.target.checked) {
-                                                        newVariationsData[variationId][key] = {
-                                                          ...cur,
-                                                          displayGroup:
-                                                            (cur.displayGroup && String(cur.displayGroup).trim()) ||
-                                                            'Wood Planks Color',
-                                                        }
-                                                      } else {
-                                                        const { displayGroup: _dg, ...rest } = cur
-                                                        newVariationsData[variationId][key] = rest
-                                                      }
-                                                      setProductForm({
-                                                        ...productForm,
-                                                        variations: JSON.stringify(newVariationsData),
-                                                      })
-                                                    }}
-                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                                                  />
-                                                  <span className="whitespace-nowrap">2nd block</span>
-                                                </label>
-                                              ) : (
-                                                <span className="text-gray-400 text-xs">—</span>
-                                              )}
-                                            </td>
-                                            <td className="px-3 py-2 align-top">
-                                              {isOptionSelected && inExtraSection ? (
-                                                <input
-                                                  type="text"
-                                                  value={String(displayGroup || '')}
-                                                  onChange={(e) => {
-                                                    const newVariationsData = { ...variationData }
-                                                    if (!newVariationsData[variationId]) {
-                                                      newVariationsData[variationId] = {}
-                                                    }
-                                                    if (!newVariationsData[variationId][key]) {
-                                                      newVariationsData[variationId][key] = {}
-                                                    }
-                                                    const t = e.target.value.trim()
-                                                    newVariationsData[variationId][key] = {
-                                                      ...newVariationsData[variationId][key],
-                                                      displayGroup: t || 'Wood Planks Color',
-                                                    }
-                                                    setProductForm({
-                                                      ...productForm,
-                                                      variations: JSON.stringify(newVariationsData),
-                                                    })
-                                                  }}
-                                                  className="w-full min-w-[8rem] border border-gray-300 rounded px-2 py-1 text-sm"
-                                                  placeholder="Wood Planks Color"
-                                                />
-                                              ) : (
-                                                <span className="text-gray-400 text-xs">—</span>
-                                              )}
-                                            </td>
-                                          </>
-                                        )}
-                                      </tr>
-                                    )
-                                  })}
-                                </tbody>
-                              </table>
+                                            <p className="text-xs text-gray-400 mt-1">Additional price for this option (can be negative)</p>
                                           </div>
-                            <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600">
-                              <strong>Tip:</strong> Check the box to enable an option, then enter display value (optional) and price adjustment (optional).
-                              {variation.type === 'color' && (
-                                <>
-                                  {' '}
-                                  For colors: use <strong>Extra section</strong> to show swatches under a custom heading on the product page (after the main color row). Size labels (12×48, etc.) are set in the variation library per swatch.
-                                </>
-                              )}
                                         </div>
+                                      )}
                                     </div>
+                                  )
+                                }) : null}
+                                {(!Array.isArray(variation.options) || variation.options.length === 0) && (
+                                  <p className="text-xs text-gray-500 italic">No options available for this variation</p>
                                 )}
-                        {isSelected && (!Array.isArray(variation.options) || variation.options.length === 0) && (
-                          <p className="text-xs text-gray-500 italic mt-2">No options available for this variation</p>
+                              </div>
                             )}
+                          </div>
+                        </label>
                       </div>
                     )
                   })
@@ -1930,32 +1414,32 @@ const ProductsManagement = () => {
                   const prodId = Number(prod.id)
                   const isSelected = productForm.related_products.some(rid => Number(rid) === prodId)
                   return (
-                  <label key={prod.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
-                    <input
-                      type="checkbox"
+                    <label key={prod.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
                         checked={isSelected}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setProductForm({
-                            ...productForm,
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setProductForm({
+                              ...productForm,
                               related_products: [...productForm.related_products, prodId]
-                          })
-                        } else {
-                          setProductForm({
-                            ...productForm,
+                            })
+                          } else {
+                            setProductForm({
+                              ...productForm,
                               related_products: productForm.related_products.filter(id => Number(id) !== prodId)
-                          })
-                        }
-                      }}
-                      className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                    />
-                    <span className="text-sm text-gray-700">
-                      {prod.name} - ${(parseFloat(prod.price) || 0).toFixed(2)}
-                      {prod.category_name && (
-                        <span className="text-xs text-gray-500 ml-2">({prod.category_name})</span>
-                      )}
-                    </span>
-                  </label>
+                            })
+                          }
+                        }}
+                        className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                      />
+                      <span className="text-sm text-gray-700">
+                        {prod.name} - ${(parseFloat(prod.price) || 0).toFixed(2)}
+                        {prod.category_name && (
+                          <span className="text-xs text-gray-500 ml-2">({prod.category_name})</span>
+                        )}
+                      </span>
+                    </label>
                   )
                 })}
                 {allProducts.filter(p => {
@@ -2093,18 +1577,18 @@ const ProductsManagement = () => {
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Technical Datasheet PDF</label>
                 <div className="space-y-2">
-                <input
+                  <input
                     ref={datasheetPdfInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => {
+                      if (e.target.files[0]) {
                         handlePdfUpload(e.target.files[0], 'datasheet_pdf', datasheetPdfInputRef)
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  disabled={uploadingPdf === 'datasheet_pdf'}
-                />
+                      }
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    disabled={uploadingPdf === 'datasheet_pdf'}
+                  />
                   {uploadingPdf === 'datasheet_pdf' && (
                     <p className="text-sm text-blue-600 font-medium">Uploading PDF...</p>
                   )}
@@ -2115,8 +1599,8 @@ const ProductsManagement = () => {
                     placeholder="Or enter PDF URL"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
-                {productForm.datasheet_pdf && (
-                    <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+                  {productForm.datasheet_pdf && (
+                    <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
                       <a 
                         href={productForm.datasheet_pdf} 
                         target="_blank" 
@@ -2126,41 +1610,27 @@ const ProductsManagement = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
-                      View Current PDF
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to remove this PDF?')) {
-                          setProductForm({ ...productForm, datasheet_pdf: '' })
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full p-1 transition-colors"
-                      title="Remove PDF"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
+                        View Current PDF
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">Product Brochure PDF</label>
                 <div className="space-y-2">
-                <input
+                  <input
                     ref={brochurePdfInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => {
-                    if (e.target.files[0]) {
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => {
+                      if (e.target.files[0]) {
                         handlePdfUpload(e.target.files[0], 'brochure_pdf', brochurePdfInputRef)
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                  disabled={uploadingPdf === 'brochure_pdf'}
-                />
+                      }
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    disabled={uploadingPdf === 'brochure_pdf'}
+                  />
                   {uploadingPdf === 'brochure_pdf' && (
                     <p className="text-sm text-blue-600 font-medium">Uploading PDF...</p>
                   )}
@@ -2171,8 +1641,8 @@ const ProductsManagement = () => {
                     placeholder="Or enter PDF URL"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   />
-                {productForm.brochure_pdf && (
-                    <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+                  {productForm.brochure_pdf && (
+                    <div className="mt-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
                       <a 
                         href={productForm.brochure_pdf} 
                         target="_blank" 
@@ -2182,24 +1652,10 @@ const ProductsManagement = () => {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
-                      View Current PDF
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to remove this PDF?')) {
-                          setProductForm({ ...productForm, brochure_pdf: '' })
-                        }
-                      }}
-                      className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded-full p-1 transition-colors"
-                      title="Remove PDF"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
+                        View Current PDF
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2332,92 +1788,6 @@ const ProductsManagement = () => {
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Product Sorting Modal */}
-      {showSorting && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-800">Product Sorting</h3>
-            <button
-              onClick={() => setShowSorting(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-gray-700 font-semibold mb-2">Sort Products For</label>
-            <select
-              value={sortingCategory}
-              onChange={(e) => handleOpenSorting(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="all">All Products (Homepage / All Products Filter)</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              Drag and drop products to reorder them. The order will be saved when you click "Save Order".
-            </p>
-            <p className="text-xs text-gray-500">
-              Showing {sortingProducts.length} products for {sortingCategory === 'all' ? 'All Products' : categories.find(c => c.id == sortingCategory)?.name || 'Selected Category'}
-            </p>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-            {sortingProducts.map((product, index) => (
-              <div
-                key={product.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                className={`flex items-center gap-4 p-4 border-b border-gray-200 cursor-move hover:bg-gray-50 ${
-                  draggedItem === index ? 'opacity-50' : ''
-                }`}
-              >
-                <div className="text-gray-400">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-gray-800">{product.name}</div>
-                  <div className="text-sm text-gray-500">
-                    {product.category_name ? `${product.category_name} • ` : ''}
-                    ${(parseFloat(product.price) || 0).toFixed(2)}
-                  </div>
-                </div>
-                <div className="text-sm text-gray-400">
-                  Position: {index + 1}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-4 mt-6">
-            <button
-              onClick={handleSaveSorting}
-              className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Save Order
-            </button>
-            <button
-              onClick={() => setShowSorting(false)}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
       )}
 

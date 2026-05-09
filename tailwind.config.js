@@ -4,6 +4,25 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  // Resource Library cards use gradient classes stored in DB; keep utilities in the build.
+  safelist: [
+    'from-green-500',
+    'to-emerald-600',
+    'from-amber-600',
+    'to-orange-700',
+    'from-blue-500',
+    'to-indigo-600',
+    'from-gray-600',
+    'to-slate-700',
+    'from-teal-500',
+    'to-cyan-600',
+    'from-purple-500',
+    'to-pink-600',
+    'from-rose-500',
+    'to-red-600',
+    'from-amber-500',
+    'to-yellow-600',
+  ],
   theme: {
     extend: {
       colors: {

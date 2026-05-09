@@ -54,16 +54,13 @@ const Login = () => {
         localStorage.setItem('user', JSON.stringify(response.data.user))
         localStorage.setItem('token', response.data.token || 'authenticated')
         
-        // Trigger custom event so Header can update (storage event only works across tabs)
-        window.dispatchEvent(new Event('userChanged'))
-        
         // Check if account is approved
         if (response.data.user.status === 'pending') {
           alert('Your account is still pending approval. Please wait for admin approval.')
           navigate('/')
         } else {
           alert('Login successful!')
-          navigate('/my-account')
+          navigate('/')
         }
       } else {
         alert(response.data.error || 'Login failed. Please check your credentials.')

@@ -5,7 +5,6 @@ const CategoryManagement = () => {
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingCategory, setEditingCategory] = useState(null)
-  const [showCategoryForm, setShowCategoryForm] = useState(false)
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     slug: '',
@@ -16,9 +15,6 @@ const CategoryManagement = () => {
   })
   const [uploadingDatasheet, setUploadingDatasheet] = useState(false)
   const [uploadingBrochure, setUploadingBrochure] = useState(false)
-  const [showSorting, setShowSorting] = useState(false)
-  const [sortingCategories, setSortingCategories] = useState([])
-  const [draggedItem, setDraggedItem] = useState(null)
 
   useEffect(() => {
     fetchCategories()
@@ -37,96 +33,28 @@ const CategoryManagement = () => {
     }
   }
 
-  // Category Sorting Functions
-  const handleDragStart = (e, index) => {
-    setDraggedItem(index)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-  }
-
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault()
-    if (draggedItem === null) return
-
-    const newCategories = [...sortingCategories]
-    const draggedCategory = newCategories[draggedItem]
-    
-    newCategories.splice(draggedItem, 1)
-    newCategories.splice(dropIndex, 0, draggedCategory)
-    
-    setSortingCategories(newCategories)
-    setDraggedItem(null)
-  }
-
-  const handleSaveSorting = async () => {
-    try {
-      const categoriesToUpdate = sortingCategories.map((category, index) => ({
-        id: category.id,
-        order_index: index
-      }))
-
-      await axios.post('/api/admin/update-category-order.php', {
-        categories: categoriesToUpdate
-      })
-
-      alert('Category order updated successfully!')
-      setShowSorting(false)
-      fetchCategories()
-    } catch (error) {
-      console.error('Error saving category order:', error)
-      alert('Error saving category order')
-    }
-  }
-
   const handlePDFUpload = async (file, type) => {
-    if (!file) {
-      alert('Please select a PDF file to upload')
-      return
-    }
-    
-    // Validate file type
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-      alert('Please select a valid PDF file')
-      return
-    }
-    
     const uploadState = type === 'datasheet' ? setUploadingDatasheet : setUploadingBrochure
     uploadState(true)
     const formData = new FormData()
     formData.append('file', file)
     
     try {
-      // Don't set Content-Type manually - axios will set it automatically with boundary for FormData
-      const response = await axios.post('/api/upload-pdf.php', formData)
-      
-      if (response.data && response.data.success) {
-        const pdfUrl = response.data.url
-        // Ensure URL starts with / for absolute path
-        const finalUrl = pdfUrl.startsWith('/') ? pdfUrl : '/' + pdfUrl
-        
+      const response = await axios.post('/api/upload-pdf.php', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      if (response.data.success) {
         setCategoryForm({ 
           ...categoryForm, 
-          [type === 'datasheet' ? 'datasheet_pdf' : 'brochure_pdf']: finalUrl 
+          [type === 'datasheet' ? 'datasheet_pdf' : 'brochure_pdf']: response.data.url 
         })
-        console.log('PDF uploaded successfully:', finalUrl)
         alert('PDF uploaded successfully!')
       } else {
-        const errorMsg = response.data?.error || 'Unknown error occurred'
-        console.error('PDF upload error:', response.data)
-        alert('Error uploading PDF: ' + errorMsg)
+        alert('Error uploading PDF: ' + response.data.error)
       }
     } catch (error) {
       console.error('Error uploading PDF:', error)
-      console.error('Error response:', error.response?.data)
-      const errorMsg = error.response?.data?.error || error.message || 'Failed to upload PDF. Please try again.'
-      const debugInfo = error.response?.data?.received_type || error.response?.data?.received_extension 
-        ? ` (Type: ${error.response.data.received_type || 'unknown'}, Ext: ${error.response.data.received_extension || 'unknown'})`
-        : ''
-      alert('Error uploading PDF: ' + errorMsg + debugInfo)
+      alert('Error uploading PDF')
     } finally {
       uploadState(false)
     }
@@ -165,7 +93,6 @@ const CategoryManagement = () => {
       }
       
       setEditingCategory(null)
-      setShowCategoryForm(false)
       setCategoryForm({
         name: '',
         slug: '',
@@ -184,7 +111,6 @@ const CategoryManagement = () => {
 
   const handleEdit = (category) => {
     setEditingCategory(category)
-    setShowCategoryForm(true)
     setCategoryForm({
       name: category.name || '',
       slug: category.slug || '',
@@ -300,48 +226,26 @@ const CategoryManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">Category Management</h2>
-        <div className="flex gap-3">
-          <button
-            onClick={() => {
-              // Sort only main categories (without parent_id)
-              let mainCats = [...categories.filter(cat => !cat.parent_id || cat.parent_id === null || cat.parent_id === '')]
-              
-              // Sort by order_index
-              mainCats.sort((a, b) => {
-                const aIndex = a.order_index !== undefined && a.order_index !== null ? a.order_index : 999999
-                const bIndex = b.order_index !== undefined && b.order_index !== null ? b.order_index : 999999
-                return aIndex - bIndex
-              })
-              
-              setSortingCategories(mainCats)
-              setShowSorting(true)
-            }}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            Sort Categories
-          </button>
-          <button
-            onClick={() => {
-              setEditingCategory(null)
-              setShowCategoryForm(true)
-              setCategoryForm({
-                name: '',
-                slug: '',
-                description: '',
-                datasheet_pdf: '',
-                brochure_pdf: '',
-                parent_id: ''
-              })
-            }}
-            className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            Add Category
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            setEditingCategory(null)
+            setCategoryForm({
+              name: '',
+              slug: '',
+              description: '',
+              datasheet_pdf: '',
+              brochure_pdf: '',
+              parent_id: ''
+            })
+          }}
+          className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+        >
+          Add Category
+        </button>
       </div>
 
       {/* Category Form */}
-      {showCategoryForm && (
+      {(editingCategory || (!editingCategory && categoryForm.name)) && (
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4">
             {editingCategory ? 'Edit Category' : 'Add New Category'}
@@ -524,7 +428,6 @@ const CategoryManagement = () => {
                 type="button"
                 onClick={() => {
                   setEditingCategory(null)
-                  setShowCategoryForm(false)
                   setCategoryForm({
                     name: '',
                     slug: '',
@@ -540,77 +443,6 @@ const CategoryManagement = () => {
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* Category Sorting Modal */}
-      {showSorting && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-800">Category Sorting</h3>
-            <button
-              onClick={() => setShowSorting(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              Drag and drop categories to reorder them. The order will be saved when you click "Save Order".
-            </p>
-            <p className="text-xs text-gray-500">
-              Showing {sortingCategories.length} main categories (sub-categories are not shown here)
-            </p>
-          </div>
-
-          <div className="border border-gray-200 rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-            {sortingCategories.map((category, index) => (
-              <div
-                key={category.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, index)}
-                className={`flex items-center gap-4 p-4 border-b border-gray-200 cursor-move hover:bg-gray-50 ${
-                  draggedItem === index ? 'opacity-50' : ''
-                }`}
-              >
-                <div className="text-gray-400">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-gray-800">{category.name}</div>
-                  <div className="text-sm text-gray-500">
-                    Slug: {category.slug || 'N/A'}
-                  </div>
-                </div>
-                <div className="text-sm text-gray-400">
-                  Position: {index + 1}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-4 mt-6">
-            <button
-              onClick={handleSaveSorting}
-              className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Save Order
-            </button>
-            <button
-              onClick={() => setShowSorting(false)}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
         </div>
       )}
 

@@ -9,8 +9,8 @@ const Resources = () => {
       title: 'SYNTHETIC TURF SYSTEMS',
       description: 'Access the latest technical data sheet (TDS) and catalog for our Synthetic Turf Systems. Download the PDFs for detailed product specifications and installation guidelines.',
       image: 'https://tileandturf.com/wp-content/uploads/2025/06/izgara-uzerine_Interactive-LightMix-copy.jpg',
-      tdsUrl: '/syntetic-turf-TDS.pdf',
-      catalogUrl: '/synt1.pdf',
+      tdsUrl: '/syn-tds.pdf',
+      catalogUrl: '/syn-catalog.pdf',
       gradient: 'from-green-500 to-emerald-600',
       icon: '🌱'
     },

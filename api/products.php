@@ -55,13 +55,13 @@ try {
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
+                        ORDER BY p.created_at DESC";
             } else {
                 $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
+                        ORDER BY p.created_at DESC";
             }
             if ($limit) {
                 $sql .= " LIMIT $limit";
@@ -170,13 +170,13 @@ try {
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
+                        ORDER BY p.created_at DESC";
             } else {
                 $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
+                        ORDER BY p.created_at DESC";
             }
             if ($limit) {
                 $sql .= " LIMIT $limit";
@@ -249,7 +249,6 @@ try {
         $pack_size = isset($data['pack_size']) && $data['pack_size'] !== '' && $data['pack_size'] !== null ? floatval($data['pack_size']) : null;
         $pcs_per_box = isset($data['pcs_per_box']) && $data['pcs_per_box'] !== '' && $data['pcs_per_box'] !== null ? intval($data['pcs_per_box']) : null;
         $show_unit_price = isset($data['show_unit_price']) ? intval($data['show_unit_price']) : 0;
-        $show_price_unit_kit = isset($data['show_price_unit_kit']) ? intval($data['show_price_unit_kit']) : 0;
         
         // Handle call for pricing
         $call_for_pricing = isset($data['call_for_pricing']) ? intval($data['call_for_pricing']) : 0;
@@ -323,18 +322,6 @@ try {
         // Handle order_index
         $order_index = isset($data['order_index']) && $data['order_index'] !== '' && $data['order_index'] !== null ? intval($data['order_index']) : 0;
         
-        // Check if show_price_unit_kit column exists
-        $checkShowPriceUnitKitSql = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                                    WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                                    AND TABLE_NAME = 'products' 
-                                    AND COLUMN_NAME = 'show_price_unit_kit'";
-        $checkShowPriceUnitKitResult = $conn->query($checkShowPriceUnitKitSql);
-        $hasShowPriceUnitKitField = false;
-        if ($checkShowPriceUnitKitResult) {
-            $row = $checkShowPriceUnitKitResult->fetch_assoc();
-            $hasShowPriceUnitKitField = $row['count'] > 0;
-        }
-        
         // Check if is_hidden column exists
         $checkIsHiddenSql = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
                            WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
@@ -400,11 +387,6 @@ try {
             $columns = array_merge($columns, ['is_packaged', 'pack_size', 'show_unit_price']);
             $packSizeValue = $pack_size !== null ? $pack_size : 'NULL';
             $values = array_merge($values, [$is_packaged, $packSizeValue, $show_unit_price]);
-        }
-        
-        if ($hasShowPriceUnitKitField) {
-            $columns = array_merge($columns, ['show_price_unit_kit']);
-            $values = array_merge($values, [$show_price_unit_kit]);
         }
         
         if ($hasPcsPerBoxField) {
@@ -544,7 +526,6 @@ try {
         $pack_size = isset($data['pack_size']) && $data['pack_size'] !== '' && $data['pack_size'] !== null ? floatval($data['pack_size']) : null;
         $pcs_per_box = isset($data['pcs_per_box']) && $data['pcs_per_box'] !== '' && $data['pcs_per_box'] !== null ? intval($data['pcs_per_box']) : null;
         $show_unit_price = isset($data['show_unit_price']) ? intval($data['show_unit_price']) : 0;
-        $show_price_unit_kit = isset($data['show_price_unit_kit']) ? intval($data['show_price_unit_kit']) : 0;
         
         // Check if SEO columns exist
         $checkSeoSql = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
@@ -663,18 +644,6 @@ try {
             $hasCallForPricingField = $row['count'] > 0;
         }
         
-        // Check if show_price_unit_kit column exists for UPDATE
-        $checkShowPriceUnitKitSql = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                                    WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                                    AND TABLE_NAME = 'products' 
-                                    AND COLUMN_NAME = 'show_price_unit_kit'";
-        $checkShowPriceUnitKitResult = $conn->query($checkShowPriceUnitKitSql);
-        $hasShowPriceUnitKitField = false;
-        if ($checkShowPriceUnitKitResult) {
-            $row = $checkShowPriceUnitKitResult->fetch_assoc();
-            $hasShowPriceUnitKitField = $row['count'] > 0;
-        }
-        
         if ($hasPackageFields) {
             $updateFields[] = "is_packaged = $is_packaged";
             $packSizeValue = $pack_size !== null ? $pack_size : 'NULL';
@@ -685,10 +654,6 @@ try {
         if ($hasPcsPerBoxField) {
             $pcsPerBoxValue = $pcs_per_box !== null ? $pcs_per_box : 'NULL';
             $updateFields[] = "pcs_per_box = $pcsPerBoxValue";
-        }
-        
-        if ($hasShowPriceUnitKitField) {
-            $updateFields[] = "show_price_unit_kit = $show_price_unit_kit";
         }
         
         if ($hasCallForPricingField) {

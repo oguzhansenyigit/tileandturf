@@ -1,51 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 
 const ImageComparison = ({ beforeImage, afterImage, alt = 'Comparison' }) => {
-  const [sliderPosition, setSliderPosition] = useState(0)
+  const [sliderPosition, setSliderPosition] = useState(50)
   const [isDragging, setIsDragging] = useState(false)
-  const [hasAutoSlid, setHasAutoSlid] = useState(false)
   const containerRef = useRef(null)
-
-  // Auto-slide animation on mount (only once)
-  useEffect(() => {
-    if (hasAutoSlid) return
-    
-    const duration = 3000 // 3 seconds for animation
-    const startTime = Date.now()
-    const startPosition = 0
-    const endPosition = 100
-    
-    let animationId
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      
-      // Ease-in-out easing function
-      const easeInOut = progress < 0.5
-        ? 2 * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2
-      
-      const currentPosition = startPosition + (endPosition - startPosition) * easeInOut
-      setSliderPosition(currentPosition)
-      
-      if (progress < 1) {
-        animationId = requestAnimationFrame(animate)
-      } else {
-        setHasAutoSlid(true)
-        // Reset to middle position after animation
-        setSliderPosition(50)
-      }
-    }
-    
-    animationId = requestAnimationFrame(animate)
-    
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId)
-      }
-    }
-  }, [hasAutoSlid])
 
   const handleMouseDown = (e) => {
     setIsDragging(true)

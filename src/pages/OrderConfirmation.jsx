@@ -1,22 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { useSettings } from '../context/SettingsContext'
 import { useCart } from '../context/CartContext'
 
-const GOOGLE_ADS_PURCHASE_SEND_TO = 'AW-17685411407/o76KCIafyL8bEM_sh_FB'
-
 const OrderConfirmation = () => {
-  const { orderId: orderIdFromPath } = useParams()
-  const [searchParams] = useSearchParams()
-  const orderId = useMemo(() => {
-    const fromQuery = searchParams.get('order')
-    if (fromQuery) return fromQuery
-    return orderIdFromPath
-  }, [searchParams, orderIdFromPath])
+  const { orderId } = useParams()
   const navigate = useNavigate()
   const { clearCart } = useCart()
-  const { whatsappNumber, phoneNumber } = useSettings()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -56,33 +46,6 @@ const OrderConfirmation = () => {
 
     fetchOrder()
   }, [orderId])
-
-  // Purchase conversion: inject snippet into <head> (thank-you / order-confirmation)
-  useEffect(() => {
-    if (!order) return
-    if (typeof document === 'undefined') return
-
-    const transactionId = String(order.order_number || `ORD-${order.id}`)
-    const firedKey = `google_ads_purchase_fired_${transactionId}`
-    if (localStorage.getItem(firedKey) === '1') return
-    if (document.getElementById('google-ads-purchase-conversion')) return
-
-    const value = parseFloat(order.total) || 1.0
-    const script = document.createElement('script')
-    script.id = 'google-ads-purchase-conversion'
-    script.text = `
-      if (typeof gtag === 'function') {
-        gtag('event', 'conversion', {
-          send_to: '${GOOGLE_ADS_PURCHASE_SEND_TO}',
-          value: ${JSON.stringify(value)},
-          currency: 'TRY',
-          transaction_id: ${JSON.stringify(transactionId)}
-        });
-      }
-    `
-    document.head.appendChild(script)
-    localStorage.setItem(firedKey, '1')
-  }, [order])
 
   const handleSendEmail = async () => {
     if (!order || !order.email) return
@@ -132,12 +95,12 @@ const OrderConfirmation = () => {
 
   const handleWhatsApp = () => {
     const message = `Hello, I have a question about my order: ${order.order_number || `ORD-${order.id}`}`
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
+    const whatsappUrl = `https://wa.me/15167741808?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
 
   const handleCall = () => {
-    window.location.href = `tel:+${phoneNumber}`
+    window.location.href = 'tel:+15167741808'
   }
 
   const orderNumber = order.order_number || `ORD-${order.id}`

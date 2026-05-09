@@ -3,13 +3,9 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import ProductSection from '../components/ProductSection'
 
 const Products = () => {
-  const { category: categoryParam } = useParams()
+  const { category } = useParams()
   const [searchParams] = useSearchParams()
   const searchTerm = searchParams.get('search')
-  const categoryQuery = searchParams.get('category')
-  
-  // Use category from query param if available, otherwise use URL param
-  const category = categoryQuery || categoryParam
 
   return (
     <div className="pt-8">

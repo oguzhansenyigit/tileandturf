@@ -81,22 +81,6 @@ body {
   animation: pulse-green 2s ease-in-out infinite;
 }
 
-/* Pulse Primary Animation for Calculator button */
-@keyframes pulse-primary {
-  0%, 100% {
-    background: linear-gradient(to right, rgba(82, 112, 104, 0.1), rgba(82, 112, 104, 0.05));
-    box-shadow: 0 0 0 0 rgba(82, 112, 104, 0);
-  }
-  50% {
-    background: linear-gradient(to right, rgba(82, 112, 104, 0.15), rgba(82, 112, 104, 0.1));
-    box-shadow: 0 0 0 4px rgba(82, 112, 104, 0.15);
-  }
-}
-
-.animate-pulse-primary {
-  animation: pulse-primary 2s ease-in-out infinite;
-}
-
 /* Logo Pulse Animation for Page Transitions */
 @keyframes logoPulse {
   0%, 100% {

@@ -1,84 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import ImageComparison from '../components/ImageComparison'
-import ProductCard from '../components/ProductCard'
-import Slider from 'react-slick'
-import 'slick-carousel/slick/slick.css'
-import 'slick-carousel/slick/slick-theme.css'
-import axios from 'axios'
-
-// Custom Arrow Components for Product Slider
-const NextArrow = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 z-10 bg-white hover:bg-gray-100 text-gray-700 rounded-full p-2 md:p-3 shadow-lg border border-gray-200 transition-all hover:scale-110"
-    aria-label="Next"
-  >
-    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  </button>
-)
-
-const PrevArrow = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 z-10 bg-white hover:bg-gray-100 text-gray-700 rounded-full p-2 md:p-3 shadow-lg border border-gray-200 transition-all hover:scale-110"
-    aria-label="Previous"
-  >
-    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  </button>
-)
 
 const SyntheticTurfSystems = () => {
-  const [products, setProducts] = useState([])
-
-  useEffect(() => {
-    fetchProducts()
-  }, [])
-
-  const fetchProducts = async () => {
-    try {
-      // Fetch all products and filter by category slugs
-      const categorySlugs = ['synthetic-grass', 'adjustable-pedestal', 'fiberglass-grating']
-      
-      // Fetch all products
-      const response = await axios.get('/api/products.php')
-      const allProducts = Array.isArray(response.data) ? response.data : []
-      
-      // Filter products by category slugs (case-insensitive matching)
-      const filteredProducts = allProducts.filter(product => {
-        // is_hidden can be string "0" or "1", or boolean, or number
-        const isHidden = product.is_hidden === "1" || product.is_hidden === 1 || product.is_hidden === true
-        if (!product.id || isHidden) return false
-        const categorySlug = product.category_slug?.toLowerCase() || ''
-        const matches = categorySlugs.some(slug => {
-          const searchSlug = slug.toLowerCase()
-          const exactMatch = categorySlug === searchSlug
-          const containsMatch = categorySlug.includes(searchSlug) || searchSlug.includes(categorySlug)
-          return exactMatch || containsMatch
-        })
-        return matches
-      })
-      
-      // Remove duplicates and limit to max 10
-      const uniqueProducts = []
-      const productIds = new Set()
-      filteredProducts.forEach(product => {
-        if (!productIds.has(product.id)) {
-          productIds.add(product.id)
-          uniqueProducts.push(product)
-        }
-      })
-      
-      const finalProducts = uniqueProducts.slice(0, 10)
-      setProducts(finalProducts)
-    } catch (error) {
-      setProducts([])
-    }
-  }
-
   const comparisons = [
     {
       before: '/syntethic-turf before 1.webp',
@@ -115,30 +38,6 @@ const SyntheticTurfSystems = () => {
             <p className="text-xl md:text-2xl text-white/95 leading-relaxed mb-8 font-light max-w-3xl">
               Premium synthetic turf solutions designed for durability, aesthetics, and performance. Transform outdoor spaces with low-maintenance, high-quality artificial grass systems.
             </p>
-            <div className="flex flex-wrap gap-4 mt-8">
-              <a
-                href="/syn1.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-200 border border-white/30 shadow-lg hover:shadow-xl"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Technical Data Sheet</span>
-              </a>
-              <a
-                href="/syn2.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-sm text-white font-semibold rounded-lg hover:bg-white/20 transition-all duration-200 border border-white/30 shadow-lg hover:shadow-xl"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span>Catalog</span>
-              </a>
-            </div>
           </div>
         </div>
         
@@ -214,87 +113,6 @@ const SyntheticTurfSystems = () => {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Related Products Section */}
-      <section className="py-20 md:py-28 bg-white">
-        <div className="container mx-auto px-6 md:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                Related Products
-              </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Explore our range of products for synthetic turf systems
-              </p>
-            </div>
-
-            {products.length > 0 ? (
-              products.length > 4 ? (
-                <div className="relative px-10 md:px-12">
-                  <Slider
-                    dots={false}
-                    arrows={true}
-                    infinite={true}
-                    speed={500}
-                    slidesToShow={4}
-                    slidesToScroll={1}
-                    autoplay={true}
-                    autoplaySpeed={3000}
-                    nextArrow={<NextArrow />}
-                    prevArrow={<PrevArrow />}
-                    swipeToSlide={true}
-                    touchThreshold={10}
-                    preventDefaultTouchmoveEvent={false}
-                    responsive={[
-                      {
-                        breakpoint: 1024,
-                        settings: {
-                          slidesToShow: 3,
-                          slidesToScroll: 1,
-                          arrows: true,
-                        }
-                      },
-                      {
-                        breakpoint: 768,
-                        settings: {
-                          slidesToShow: 2,
-                          slidesToScroll: 1,
-                          arrows: true,
-                        }
-                      },
-                      {
-                        breakpoint: 640,
-                        settings: {
-                          slidesToShow: 1,
-                          slidesToScroll: 1,
-                          arrows: true,
-                        }
-                      }
-                    ]}
-                  >
-                    {products.map((product) => (
-                      <div key={product.id} className="px-2" onClick={(e) => e.stopPropagation()}>
-                        <ProductCard product={product} />
-                      </div>
-                    ))}
-                  </Slider>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No products found in these categories.</p>
-                <p className="text-gray-400 text-sm mt-2">Products will appear here once they are added to the synthetic-grass, adjustable-pedestal, or fiberglass-grating categories.</p>
-              </div>
-            )}
           </div>
         </div>
       </section>

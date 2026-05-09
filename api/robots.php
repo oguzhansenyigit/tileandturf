@@ -1,10 +1,13 @@
 <?php
+define('TILEANDTURF_SKIP_JSON_HEADERS', true);
+
 // Prevent any output before text
 ob_clean();
 ob_start();
 
 require_once 'config.php';
 
+header_remove('Content-Type');
 header('Content-Type: text/plain; charset=utf-8');
 header('Cache-Control: public, max-age=3600');
 

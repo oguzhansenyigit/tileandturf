@@ -18,37 +18,22 @@ const PedestalCalculator = () => {
     { label: 'Custom Size', value: 'custom' }
   ]
 
-  // Get pedestal count for a tile based on its dimensions
-  // Based on installation patterns:
-  // - 24x24, 18x18, 12x12, 12x24: 4 pedestals (corners only)
-  // - 24x48: 6 pedestals (4 corners + 2 middle on long sides)
-  // - 18x36: 5 pedestals (4 corners + 1 middle on long side)
   const getPedestalCountForTile = (width, height) => {
-    const minDim = Math.min(width, height)
     const maxDim = Math.max(width, height)
-    
-    // Tiles with max dimension <= 24: 4 pedestals (corners only)
+
     if (maxDim <= 24) {
       return 4
     }
-    
-    // For tiles with max dimension > 24, add middle pedestals
-    // Calculate how many 24" segments fit in the longer dimension
+
     const segments = maxDim / 24
-    // Number of additional pedestals needed (excluding corners)
-    // Each segment beyond the first requires 1 pedestal per long side
     const additionalPedestals = Math.floor(segments - 1) * 2
-    
-    // Special case: if segments is between 1 and 2 (e.g., 18x36 = 1.5 segments)
-    // Add 1 pedestal on one long side only
+
     if (segments > 1 && segments < 2) {
-      return 4 + 1 // 4 corners + 1 middle
+      return 4 + 1
     }
-    
-    // For segments >= 2 (e.g., 24x48 = 2 segments)
+
     return 4 + additionalPedestals
   }
-
 
   const getTileDimensions = () => {
     if (useCustomSize) {
@@ -70,7 +55,6 @@ const PedestalCalculator = () => {
   const calculateTileArea = () => {
     const dimensions = getTileDimensions()
     if (!dimensions) return 0
-    // Convert inches to sqft: (width × height) / 144
     return (dimensions.width * dimensions.height) / 144
   }
 
@@ -78,25 +62,21 @@ const PedestalCalculator = () => {
     const area = parseFloat(totalArea) || 0
     const tileArea = calculateTileArea()
     const dimensions = getTileDimensions()
-    
+
     if (area <= 0 || tileArea <= 0 || !dimensions) {
       return null
     }
 
-    // Calculate exact tile count (can be decimal)
     const exactTileCount = area / tileArea
-    // Round up tile count for display
     const tileCount = Math.ceil(exactTileCount)
-    
-    // Get pedestal count per tile based on dimensions
+
     const pedestalsPerTile = getPedestalCountForTile(dimensions.width, dimensions.height)
-    
-    // Calculate total pedestal count: exact tile count × pedestals per tile
+
     const pedestalCount = Math.ceil(exactTileCount * pedestalsPerTile)
 
     return {
       totalArea: area,
-      pedestalPatternArea: tileArea, // Changed from tileArea to pedestalPatternArea
+      pedestalPatternArea: tileArea,
       tileCount: tileCount,
       exactTileCount: exactTileCount,
       pedestalCount: pedestalCount,
@@ -109,7 +89,6 @@ const PedestalCalculator = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-6 md:px-8 max-w-4xl">
-        {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             Pedestal Calculator
@@ -119,10 +98,8 @@ const PedestalCalculator = () => {
           </p>
         </div>
 
-        {/* Calculator Card */}
         <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
           <div className="space-y-6">
-            {/* Total Area Input */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">
                 Total Area (sqft) <span className="text-red-500">*</span>
@@ -141,13 +118,11 @@ const PedestalCalculator = () => {
               </p>
             </div>
 
-            {/* Tile Size Selection */}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">
                 Tile Size <span className="text-red-500">*</span>
               </label>
-              
-              {/* Common Sizes */}
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                 {commonTileSizes.map((size) => (
                   <button
@@ -173,7 +148,6 @@ const PedestalCalculator = () => {
                 ))}
               </div>
 
-              {/* Custom Size Inputs */}
               {useCustomSize && (
                 <div className="grid grid-cols-2 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
                   <div>
@@ -208,7 +182,6 @@ const PedestalCalculator = () => {
               )}
             </div>
 
-            {/* Results */}
             {results && (
               <div className="mt-8 p-6 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg border-2 border-primary/20">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Calculation Results</h3>
@@ -243,7 +216,6 @@ const PedestalCalculator = () => {
               </div>
             )}
 
-            {/* Info Box */}
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <strong>Calculation Formula:</strong> Pedestal Count = (Total Area ÷ Pedestal Pattern Area) × Pedestals per Tile
@@ -252,10 +224,8 @@ const PedestalCalculator = () => {
               </p>
             </div>
 
-            {/* Adjustable Pedestals Category Promotion */}
             <div className="mt-6 p-6 bg-gradient-to-r from-primary/5 to-primary/10 border-2 border-primary/30 rounded-xl shadow-md hover:shadow-lg transition-all duration-300">
               <div className="flex flex-col md:flex-row items-center gap-6">
-                {/* Product Image */}
                 <div className="flex-shrink-0">
                   <img 
                     src="/adjustable-pedestal-mainpage.webp" 
@@ -267,7 +237,6 @@ const PedestalCalculator = () => {
                   />
                 </div>
                 
-                {/* Content */}
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
                     Shop Adjustable Pedestals
@@ -290,14 +259,13 @@ const PedestalCalculator = () => {
           </div>
         </div>
 
-        {/* Additional Info */}
         <div className="bg-white rounded-xl shadow-lg p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">How to Use This Calculator</h2>
           <ol className="list-decimal list-inside space-y-3 text-gray-700">
             <li>Enter the total square footage of your project area</li>
             <li>Select your tile size from the common sizes or enter custom dimensions</li>
             <li>The calculator will automatically determine the number of pedestals needed</li>
-            <li>Click "Add to Cart" to add the calculated quantity to your shopping cart</li>
+            <li>Use the results to plan material quantities for your installation</li>
           </ol>
         </div>
       </div>

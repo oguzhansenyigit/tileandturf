@@ -1,8 +1,6 @@
 import React from 'react'
-import { useSettings } from '../context/SettingsContext'
 
 const PrivacyPolicy = () => {
-  const { phoneNumber } = useSettings()
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto">
@@ -58,7 +56,7 @@ const PrivacyPolicy = () => {
             </p>
             <ul className="list-disc list-inside text-gray-700 mt-4 space-y-2">
               <li>Email: <a href="mailto:info@tileandturf.com" className="text-primary hover:underline">info@tileandturf.com</a></li>
-              <li>Phone: <a href={`tel:+${phoneNumber}`} className="text-primary hover:underline">(516) 774-1808</a></li>
+              <li>Phone: <a href="tel:+15167741808" className="text-primary hover:underline">(516) 774-1808</a></li>
             </ul>
           </section>
         </div>

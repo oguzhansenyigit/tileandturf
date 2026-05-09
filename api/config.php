@@ -4,18 +4,17 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Email configuration - Set default From address
-ini_set('sendmail_from', 'noreply@tileandturf.com');
+// Sitemap, robots.txt, etc. define TILEANDTURF_SKIP_JSON_HEADERS before including this file.
+if (!defined('TILEANDTURF_SKIP_JSON_HEADERS')) {
+    header('Content-Type: application/json');
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type');
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-// Handle preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(200);
+        exit();
+    }
 }
 
 // Database configuration
@@ -35,5 +34,4 @@ if ($conn->connect_error) {
 }
 
 $conn->set_charset("utf8");
-?>
 

@@ -11,19 +11,19 @@ const CategoryGrid = () => {
     },
     {
       name: 'GREEN ROOF SYSTEM',
-      slug: 'green-roof-system',
+      slug: 'green-roof-systems',
       image: '/greenroof-mainpage.webp',
       description: 'Sustainable green roof solutions'
     },
     {
       name: 'SYNTHETIC SYSTEMS',
-      slug: 'synthetic-grass',
+      slug: 'synthetic-systems',
       image: '/slider3.webp',
       description: 'High-quality synthetic turf solutions'
     },
     {
       name: 'IPE TILE SYSTEMS',
-      slug: 'ipe-tile',
+      slug: 'ipe-tile-systems',
       image: '/slider5.webp',
       description: 'Premium IPE wood tile systems'
     }
@@ -44,7 +44,7 @@ const CategoryGrid = () => {
           {categories.map((category) => (
             <Link
               key={category.slug}
-              to={`/products?category=${category.slug}`}
+              to={`/products/${category.slug}`}
               className="group relative overflow-hidden rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1"
             >
               <div className="relative h-[500px] overflow-hidden">

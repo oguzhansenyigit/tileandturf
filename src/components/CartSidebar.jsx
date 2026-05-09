@@ -114,7 +114,7 @@ const CartSidebar = ({ isOpen, onClose }) => {
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto">
           {/* Cart Items - Compact */}
-          {!cart || cart.length === 0 ? (
+          {cart.length === 0 ? (
             <div className="text-center py-12 px-4">
               <svg className="w-16 h-16 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -130,8 +130,8 @@ const CartSidebar = ({ isOpen, onClose }) => {
             </div>
           ) : (
             <div className="p-4 space-y-3">
-              {cart.map((item, idx) => (
-                <div key={item.id + '-' + (item.selectedSize || '') + '-' + JSON.stringify(item.selectedVariations || {}) + '-' + (item.sqft || 0) + '-' + (item.length || 0) + '-' + idx} className="flex gap-3 pb-3 border-b border-gray-100">
+              {cart.map((item) => (
+                <div key={item.id} className="flex gap-3 pb-3 border-b border-gray-100">
                   <Link to={getProductUrl(item)} onClick={onClose} className="flex-shrink-0">
                     <img
                       src={item.image || '/slider.webp'}
@@ -145,63 +145,26 @@ const CartSidebar = ({ isOpen, onClose }) => {
                         {item.name}
                       </h3>
                     </Link>
-                    {item.selectedSize && (
-                      <p className="text-xs text-gray-500 mb-1">Size: {item.selectedSize}</p>
-                    )}
                     <p className="text-primary font-bold text-base mb-2">
                       {(() => {
                         let displayPrice = parseFloat(item.price) || 0
                         
-                        // For sqft products, calculate total price (sqft × sqft_price, no quantity)
+                        // For sqft products, calculate total price
                         if (item.sqft && item.sqft_price) {
                           displayPrice = parseFloat(item.sqft) * parseFloat(item.sqft_price)
                         }
-                        // For length products, calculate unit price
-                        else if (item.length) {
-                          // First, try to use length_prices JSON if available
-                          if (item.length_prices) {
-                            try {
-                              const lengthPrices = typeof item.length_prices === 'string' 
-                                ? JSON.parse(item.length_prices) 
-                                : item.length_prices
-                              
-                              // Check if price exists for this length
-                              if (lengthPrices && lengthPrices[item.length.toString()] !== undefined) {
-                                displayPrice = parseFloat(lengthPrices[item.length.toString()])
-                              } else if (item.length_base_price && item.length_increment_price) {
-                                // Fallback to length formula if length not in length_prices
-                                displayPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
-                              }
-                            } catch (e) {
-                              console.error('Error parsing length_prices in cart sidebar:', e)
-                              // Fallback to length formula
-                              if (item.length_base_price && item.length_increment_price) {
-                                displayPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
-                              }
-                            }
-                          } else if (item.length_base_price && item.length_increment_price) {
-                            // Use length formula: base_price + ((length - 1) * increment_price)
-                            displayPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
-                          }
+                        // For length products, calculate total price
+                        else if (item.length && item.length_base_price && item.length_increment_price) {
+                          displayPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
                         }
                         // For packaged products, show package price directly (item.price is already package price)
                         else if (item.is_packaged && item.pack_size) {
                           displayPrice = parseFloat(item.price) || 0
                         }
                         
-                        // Multiply by quantity for display (except sqft products - they don't use quantity)
-                        const totalPrice = (item.sqft && item.sqft_price) 
-                          ? displayPrice // Sqft products: already calculated as sqft × sqft_price
-                          : displayPrice * (parseInt(item.quantity) || 1) // Other products: multiply by quantity
-                        
                         return (
                           <>
-                            ${totalPrice.toFixed(2)}
-                            {!item.sqft && item.quantity > 1 && (
-                              <span className="text-xs text-gray-500 ml-1">
-                                ({item.quantity} × ${displayPrice.toFixed(2)})
-                              </span>
-                            )}
+                            ${displayPrice.toFixed(2)}
                             {item.is_packaged && item.pack_size && (
                               <span className="text-xs text-gray-500 ml-1">
                                 (per unit {item.pack_size})
@@ -222,38 +185,23 @@ const CartSidebar = ({ isOpen, onClose }) => {
                       })()}
                     </p>
                     <div className="flex items-center justify-between">
-                      {/* Don't show quantity controls for sqft products - sqft value itself is the quantity */}
-                      {!item.sqft && (
-                        <div className="flex items-center space-x-1.5">
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1, item)}
-                            className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
-                          >
-                            -
-                          </button>
-                          <span className="w-6 text-center text-sm font-semibold">
-                            {(() => {
-                              // Debug: Log quantity and length to ensure they're not mixed up
-                              if (item.length && parseInt(item.quantity) === parseInt(item.length)) {
-                                console.warn('⚠️ Quantity matches length - possible bug:', {
-                                  itemId: item.id,
-                                  quantity: item.quantity,
-                                  length: item.length
-                                })
-                              }
-                              return item.quantity
-                            })()}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1, item)}
-                            className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
+                        >
+                          -
+                        </button>
+                        <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
                       <button
-                        onClick={() => removeFromCart(item.id, item)}
+                        onClick={() => removeFromCart(item.id)}
                         className="text-red-600 hover:text-red-800 text-xs font-semibold"
                       >
                         Remove

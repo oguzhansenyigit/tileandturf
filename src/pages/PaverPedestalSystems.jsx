@@ -1,85 +1,7 @@
-import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import React from 'react'
 import ImageComparison from '../components/ImageComparison'
-import ProductCard from '../components/ProductCard'
-import Slider from 'react-slick'
-import 'slick-carousel/slick/slick.css'
-import 'slick-carousel/slick/slick-theme.css'
-import axios from 'axios'
-
-// Custom Arrow Components for Product Slider
-const NextArrow = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 z-10 bg-white hover:bg-gray-100 text-gray-700 rounded-full p-2 md:p-3 shadow-lg border border-gray-200 transition-all hover:scale-110"
-    aria-label="Next"
-  >
-    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  </button>
-)
-
-const PrevArrow = ({ onClick }) => (
-  <button
-    onClick={onClick}
-    className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 z-10 bg-white hover:bg-gray-100 text-gray-700 rounded-full p-2 md:p-3 shadow-lg border border-gray-200 transition-all hover:scale-110"
-    aria-label="Previous"
-  >
-    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-    </svg>
-  </button>
-)
 
 const PaverPedestalSystems = () => {
-  const [products, setProducts] = useState([])
-
-  useEffect(() => {
-    fetchProducts()
-  }, [])
-
-  const fetchProducts = async () => {
-    try {
-      // Fetch all products and filter by category slugs
-      const categorySlugs = ['adjustable-pedestal', 'concrete-pavers-systems', 'porcelain-paver-category']
-      
-      // Fetch all products
-      const response = await axios.get('/api/products.php')
-      const allProducts = Array.isArray(response.data) ? response.data : []
-      
-      // Filter products by category slugs (case-insensitive matching)
-      const filteredProducts = allProducts.filter(product => {
-        // is_hidden can be string "0" or "1", or boolean, or number
-        const isHidden = product.is_hidden === "1" || product.is_hidden === 1 || product.is_hidden === true
-        if (!product.id || isHidden) return false
-        const categorySlug = product.category_slug?.toLowerCase() || ''
-        const matches = categorySlugs.some(slug => {
-          const searchSlug = slug.toLowerCase()
-          const exactMatch = categorySlug === searchSlug
-          const containsMatch = categorySlug.includes(searchSlug) || searchSlug.includes(categorySlug)
-          return exactMatch || containsMatch
-        })
-        return matches
-      })
-      
-      // Remove duplicates and limit to max 10
-      const uniqueProducts = []
-      const productIds = new Set()
-      filteredProducts.forEach(product => {
-        if (!productIds.has(product.id)) {
-          productIds.add(product.id)
-          uniqueProducts.push(product)
-        }
-      })
-      
-      const finalProducts = uniqueProducts.slice(0, 10)
-      setProducts(finalProducts)
-    } catch (error) {
-      setProducts([])
-    }
-  }
-
   const handleDownloadDatasheet = () => {
     window.open('/Porcelain-Paver-TDS-1.pdf', '_blank')
   }
@@ -155,33 +77,6 @@ const PaverPedestalSystems = () => {
         </div>
       </div>
 
-      {/* Calculator Banner */}
-      <section className="py-12 bg-gradient-to-r from-primary to-primary-dark">
-        <div className="container mx-auto px-6 md:px-8">
-          <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-2xl p-8 md:p-10">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex-1">
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                  Calculate Pedestals Needed
-                </h2>
-                <p className="text-gray-600 text-lg">
-                  Not sure how many pedestals you need? Use our calculator to determine the exact quantity based on your project area and tile size.
-                </p>
-              </div>
-              <Link
-                to="/pedestal-calculator"
-                className="inline-flex items-center gap-3 px-8 py-4 bg-primary hover:bg-primary-dark text-white font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 whitespace-nowrap"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                <span>Open Calculator</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Overview Section */}
       <section className="py-20 md:py-28 bg-white">
         <div className="container mx-auto px-6 md:px-8">
@@ -217,87 +112,6 @@ const PaverPedestalSystems = () => {
                 <div className="absolute -bottom-6 -right-6 w-48 h-48 bg-gray-100 rounded-lg opacity-30 -z-10"></div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Related Products Section */}
-      <section className="py-20 md:py-28 bg-white">
-        <div className="container mx-auto px-6 md:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                Related Products
-              </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Explore our range of products for paver pedestal systems
-              </p>
-            </div>
-
-            {products.length > 0 ? (
-              products.length > 4 ? (
-                <div className="relative px-10 md:px-12">
-                  <Slider
-                    dots={false}
-                    arrows={true}
-                    infinite={true}
-                    speed={500}
-                    slidesToShow={4}
-                    slidesToScroll={1}
-                    autoplay={true}
-                    autoplaySpeed={3000}
-                    nextArrow={<NextArrow />}
-                    prevArrow={<PrevArrow />}
-                    swipeToSlide={true}
-                    touchThreshold={10}
-                    preventDefaultTouchmoveEvent={false}
-                    responsive={[
-                      {
-                        breakpoint: 1024,
-                        settings: {
-                          slidesToShow: 3,
-                          slidesToScroll: 1,
-                          arrows: true,
-                        }
-                      },
-                      {
-                        breakpoint: 768,
-                        settings: {
-                          slidesToShow: 2,
-                          slidesToScroll: 1,
-                          arrows: true,
-                        }
-                      },
-                      {
-                        breakpoint: 640,
-                        settings: {
-                          slidesToShow: 1,
-                          slidesToScroll: 1,
-                          arrows: true,
-                        }
-                      }
-                    ]}
-                  >
-                    {products.map((product) => (
-                      <div key={product.id} className="px-2" onClick={(e) => e.stopPropagation()}>
-                        <ProductCard product={product} />
-                      </div>
-                    ))}
-                  </Slider>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">No products found in these categories.</p>
-                <p className="text-gray-400 text-sm mt-2">Products will appear here once they are added to the adjustable-pedestal, concrete-pavers-systems, or porcelain-paver-category categories.</p>
-              </div>
-            )}
           </div>
         </div>
       </section>

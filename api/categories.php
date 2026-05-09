@@ -3,48 +3,23 @@ require_once 'config.php';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        // Check if PDF columns and order_index exist
+        // Check if PDF columns exist
         $checkColumns = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
                         WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
                         AND TABLE_NAME = 'categories' 
-                        AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf', 'parent_id', 'order_index')";
+                        AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf', 'parent_id')";
         $colResult = $conn->query($checkColumns);
-        $hasPDFColumns = false;
-        $hasOrderIndex = false;
-        
+        $hasColumns = false;
         if ($colResult) {
             $colRow = $colResult->fetch_assoc();
-            $hasPDFColumns = $colRow['count'] >= 3; // datasheet_pdf, brochure_pdf, parent_id
-            
-            // Check specifically for order_index
-            $checkOrderIndex = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                               WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                               AND TABLE_NAME = 'categories' 
-                               AND COLUMN_NAME = 'order_index'";
-            $orderIndexResult = $conn->query($checkOrderIndex);
-            if ($orderIndexResult) {
-                $orderIndexRow = $orderIndexResult->fetch_assoc();
-                $hasOrderIndex = $orderIndexRow['count'] > 0;
-            }
+            $hasColumns = $colRow['count'] >= 3;
         }
         
-        // Build SELECT clause
-        $selectFields = ['id', 'name', 'slug', 'description', 'created_at'];
-        if ($hasPDFColumns) {
-            $selectFields = array_merge($selectFields, ['datasheet_pdf', 'brochure_pdf', 'parent_id']);
+        if ($hasColumns) {
+            $sql = "SELECT id, name, slug, description, datasheet_pdf, brochure_pdf, parent_id, created_at FROM categories ORDER BY created_at DESC";
+        } else {
+            $sql = "SELECT * FROM categories ORDER BY created_at DESC";
         }
-        if ($hasOrderIndex) {
-            $selectFields[] = 'order_index';
-        }
-        
-        $selectClause = implode(', ', $selectFields);
-        
-        // Build ORDER BY clause - use order_index if available, otherwise created_at
-        $orderBy = $hasOrderIndex 
-            ? 'ORDER BY COALESCE(order_index, 999999) ASC, created_at ASC'
-            : 'ORDER BY created_at DESC';
-        
-        $sql = "SELECT $selectClause FROM categories $orderBy";
         
         $result = $conn->query($sql);
         

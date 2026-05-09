@@ -31,11 +31,9 @@ const DistanceSalesAgreement = () => {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">3. Shipping and Delivery</h2>
             <ul className="list-disc list-inside text-gray-700 space-y-2">
-              <li>
-                <strong>Freight and shipping costs are not fixed at checkout.</strong> They depend on product weight, volume, quantity, destination, and carrier availability. After you submit an order, our team will contact you to confirm the order, provide a shipping or freight quote, and proceed only after you agree to the total including shipping.
-              </li>
-              <li>Online totals before that confirmation show product subtotals only unless we have explicitly included an approved shipping amount.</li>
-              <li>Delivery times may vary depending on destination, shipping method, stock, and carrier schedules.</li>
+              <li>Shipping costs are calculated based on current FedEx Express rates.</li>
+              <li>Shipping fees will be displayed during checkout before payment confirmation.</li>
+              <li>Delivery times may vary depending on the destination and shipping method selected.</li>
             </ul>
           </section>
 
@@ -52,7 +50,7 @@ const DistanceSalesAgreement = () => {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">5. Payment Terms</h2>
             <p className="text-gray-700 leading-relaxed">
-              Placing an order online creates a request that we review with you. <strong>Payment terms, including when and how payment is due, are confirmed with you after a representative reviews your order, shipping or freight charges, and availability.</strong> We accept payment methods as agreed at that stage (for example, as discussed by phone or email with our team).
+              All payments must be made in full at the time of purchase. We accept various payment methods as displayed during checkout.
             </p>
           </section>
 

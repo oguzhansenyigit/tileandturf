@@ -1,8 +1,6 @@
 import React from 'react'
-import { useSettings } from '../context/SettingsContext'
 
 const TermsAndConditions = () => {
-  const { phoneNumber } = useSettings()
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-4xl mx-auto">
@@ -31,21 +29,21 @@ const TermsAndConditions = () => {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">3. Pricing & Payment</h2>
             <p className="text-gray-700 leading-relaxed">
-              All prices are listed in U.S. dollars. We reserve the right to change pricing at any time without notice. <strong>Shipping and freight are quoted after you place an order</strong>, because costs depend on weight, quantity, and delivery location. A customer representative will contact you to confirm product totals, shipping or freight charges, and payment arrangements. Payment is due according to what we agree with you at that time. We may accept major credit cards, PayPal, or other methods as offered when your order is confirmed.
+              All prices are listed in U.S. dollars. We reserve the right to change pricing at any time without notice. Payment must be received in full before order processing. We accept most major credit cards and PayPal.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">4. Order Acceptance & Cancellation</h2>
             <p className="text-gray-700 leading-relaxed">
-              We reserve the right to accept or reject any order. An online order submission is a request; <strong>the sale is confirmed only after we contact you, agree on shipping or freight and final terms, and you approve the order for fulfillment.</strong> If we cancel your order after you have paid, we will issue an appropriate refund in line with what was agreed.
+              We reserve the right to accept or reject any order. If we cancel your order after payment, we will issue a full refund.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">5. Shipping & Delivery</h2>
             <p className="text-gray-700 leading-relaxed">
-              Shipping is arranged after order review and your approval of freight costs. Refer to our Shipping Policy for detailed information. Risk of loss passes to you upon delivery of the order to the carrier.
+              Refer to our Shipping Policy for detailed information. Risk of loss passes to you upon delivery of the order to the carrier.
             </p>
           </section>
 
@@ -84,7 +82,7 @@ const TermsAndConditions = () => {
             </p>
             <ul className="list-disc list-inside text-gray-700 mt-4 space-y-2">
               <li>Email: <a href="mailto:info@tileandturf.com" className="text-primary hover:underline">info@tileandturf.com</a></li>
-              <li>Phone: <a href={`tel:+${phoneNumber}`} className="text-primary hover:underline">(516) 774-1808</a></li>
+              <li>Phone: <a href="tel:+15167741808" className="text-primary hover:underline">(516) 774-1808</a></li>
             </ul>
           </section>
         </div>

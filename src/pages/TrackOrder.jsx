@@ -208,8 +208,9 @@ const TrackOrder = () => {
                   <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg border-l-4 border-yellow-500">
                     <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                     <div>
-                      <p className="font-semibold text-gray-800">Order Received</p>
+                      <p className="font-semibold text-gray-800">Order Received (Sipariş Alındı)</p>
                       <p className="text-sm text-gray-600">Your order has been received and is waiting to be processed.</p>
+                      <p className="text-xs text-gray-500 mt-1">Siparişiniz alındı ve işleme bekleniyor.</p>
                     </div>
                   </div>
                 )}

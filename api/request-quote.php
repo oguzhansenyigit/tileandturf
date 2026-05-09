@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($quantity) $emailBody .= "Quantity: $quantity\n";
         if ($message) $emailBody .= "Message: $message\n";
         
-        $headers = "From: noreply@tileandturf.com\r\n";
+        $headers = "From: noreply@tileandturf.oguzhansenyigit.com\r\n";
         $headers .= "Reply-To: $email\r\n";
         $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
         

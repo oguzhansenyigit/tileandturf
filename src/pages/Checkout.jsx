@@ -2,13 +2,11 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
-import { useSettings } from '../context/SettingsContext'
 import ShippingCalculator from '../components/ShippingCalculator'
 
 const Checkout = () => {
   const navigate = useNavigate()
   const { cart, getCartTotal, clearCart } = useCart()
-  const { phoneNumber } = useSettings()
   const orderPlacedRef = useRef(false)
   const [formData, setFormData] = useState({
     firstName: '',
@@ -98,7 +96,7 @@ const Checkout = () => {
         
         // Navigate immediately - don't wait for anything
         // Use window.location for immediate navigation to prevent any interference
-        window.location.href = `/thank-you?order=${orderId}`
+        window.location.href = `/order-confirmation/${orderId}`
       } else {
         alert('Error placing order: ' + (response.data.error || 'Please try again.'))
       }
@@ -126,7 +124,7 @@ const Checkout = () => {
       <div className="bg-primary text-white p-4 mb-8 rounded-lg text-center max-w-2xl mx-auto">
         <h2 className="text-xl font-bold mb-2">Call for Shipping</h2>
         <p className="text-white/95">
-          Price reflected on order will not include shipping cost. For shipping rates call us <a href={`tel:+${phoneNumber}`} className="font-semibold underline hover:text-white">(516) 774-1808</a>
+          Price reflected on order will not include shipping cost. For shipping rates call us <a href="tel:+15167741808" className="font-semibold underline hover:text-white">(516) 774-1808</a>
         </p>
       </div>
 
@@ -319,62 +317,16 @@ const Checkout = () => {
           <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Summary</h2>
             <div className="space-y-4 mb-6">
-              {cart.map((item, idx) => {
-                let unitPrice = parseFloat(item.price) || 0
-                let totalPrice = 0
-                
-                // For sqft products, calculate total: sqft × sqft_price (no quantity multiplication)
-                if (item.sqft && item.sqft_price) {
-                  totalPrice = parseFloat(item.sqft) * parseFloat(item.sqft_price)
-                }
-                // For length products, calculate unit price
-                else if (item.length) {
-                  // First, try to use length_prices JSON if available
-                  if (item.length_prices) {
-                    try {
-                      const lengthPrices = typeof item.length_prices === 'string' 
-                        ? JSON.parse(item.length_prices) 
-                        : item.length_prices
-                      
-                      // Check if price exists for this length
-                      if (lengthPrices && lengthPrices[item.length.toString()] !== undefined) {
-                        unitPrice = parseFloat(lengthPrices[item.length.toString()])
-                      } else if (item.length_base_price && item.length_increment_price) {
-                        // Fallback to length formula if length not in length_prices
-                        unitPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
-                      }
-                    } catch (e) {
-                      console.error('Error parsing length_prices in checkout:', e)
-                      // Fallback to length formula
-                      if (item.length_base_price && item.length_increment_price) {
-                        unitPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
-                      }
-                    }
-                  } else if (item.length_base_price && item.length_increment_price) {
-                    // Use length formula: base_price + ((length - 1) * increment_price)
-                    unitPrice = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
-                  }
-                  totalPrice = unitPrice * (parseInt(item.quantity) || 1)
-                } else {
-                  // For regular products
-                  totalPrice = unitPrice * (parseInt(item.quantity) || 1)
-                }
-                
-                return (
-                  <div key={item.id + '-' + (item.selectedSize || '') + '-' + JSON.stringify(item.selectedVariations || {}) + '-' + idx} className="flex justify-between text-sm">
-                    <span className="text-gray-600">
-                      {item.name}
-                      {!item.sqft && ` x${item.quantity}`}
-                      {item.length && ` (length: ${item.length})`}
-                      {item.sqft && ` (${item.sqft} sqft)`}
-                      {item.selectedSize && ` · ${item.selectedSize}`}
-                    </span>
-                    <span className="font-semibold">
-                      ${totalPrice.toFixed(2)}
-                    </span>
-                  </div>
-                )
-              })}
+              {cart.map((item) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    {item.name} x{item.quantity}
+                  </span>
+                  <span className="font-semibold">
+                    ${((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0)).toFixed(2)}
+                  </span>
+                </div>
+              ))}
               
               {/* Shipping Calculator */}
               <ShippingCalculator 

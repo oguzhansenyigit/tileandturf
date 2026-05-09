@@ -1,9 +1,7 @@
 import React, { useState } from 'react'
 import axios from 'axios'
-import { useSettings } from '../context/SettingsContext'
 
 const Contact = () => {
-  const { phoneNumber } = useSettings()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -74,7 +72,7 @@ const Contact = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-800 mb-1">Phone</h3>
-                  <a href={`tel:+${phoneNumber}`} className="text-primary hover:text-primary-dark font-semibold text-lg transition-colors">
+                  <a href="tel:+15167741808" className="text-primary hover:text-primary-dark font-semibold text-lg transition-colors">
                     (516) 774-1808
                   </a>
                   <p className="text-sm text-gray-600 mt-1">Call us during business hours</p>

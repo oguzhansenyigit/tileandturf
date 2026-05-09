@@ -26,6 +26,8 @@ import SyntheticTurfSystems from './pages/SyntheticTurfSystems'
 import IpeTileSystems from './pages/IpeTileSystems'
 import ConcretePaversSystem from './pages/ConcretePaversSystem'
 import PorcelainPaver from './pages/PorcelainPaver'
+import PedestalCalculator from './pages/PedestalCalculator'
+import NotFound from './pages/NotFound'
 import { CartProvider } from './context/CartContext'
 import axios from 'axios'
 
@@ -148,10 +150,13 @@ function App() {
           <Route path="/distance-sales-agreement" element={<Layout><DistanceSalesAgreement /></Layout>} />
           <Route path="/return-policy" element={<Layout><ReturnPolicy /></Layout>} />
           <Route path="/shipping-policy" element={<Layout><ShippingPolicy /></Layout>} />
-          
+          <Route path="/pedestal-calculator" element={<Layout><PedestalCalculator /></Layout>} />
+
           {/* Admin Routes - Separate Layout */}
           <Route path="/admin" element={<AdminLayout><Admin /></AdminLayout>} />
           <Route path="/admin/*" element={<AdminLayout><Admin /></AdminLayout>} />
+
+          <Route path="*" element={<Layout><NotFound /></Layout>} />
         </Routes>
       </Router>
     </CartProvider>

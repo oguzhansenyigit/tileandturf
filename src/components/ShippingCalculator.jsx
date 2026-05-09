@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
-import { useSettings } from '../context/SettingsContext'
 
 const ShippingCalculator = ({ cart, state, onShippingCalculated, showContactButtons = true }) => {
-  const { whatsappNumber, phoneNumber } = useSettings()
   const [shippingCost, setShippingCost] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -116,12 +114,12 @@ const ShippingCalculator = ({ cart, state, onShippingCalculated, showContactButt
 
   const handleWhatsApp = () => {
     const message = `Hello, I need a shipping quote for my order. State: ${state || 'Not selected'}`
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`
+    const whatsappUrl = `https://wa.me/15167741808?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
 
   const handlePhone = () => {
-    window.location.href = `tel:+${phoneNumber}`
+    window.location.href = 'tel:+15167741808'
   }
 
   if (!state) {

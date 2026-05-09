@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS orders (
     country VARCHAR(100) DEFAULT 'United States',
     total DECIMAL(10, 2) NOT NULL,
     status ENUM('pending', 'processing', 'shipped', 'completed', 'cancelled') DEFAULT 'pending',
+    archived TINYINT(1) NOT NULL DEFAULT 0,
     payment_method VARCHAR(50),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -164,6 +165,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_menu_slug (slug),
     FOREIGN KEY (parent_id) REFERENCES menu_items(id) ON DELETE SET NULL
 );
 
@@ -186,6 +188,30 @@ CREATE TABLE IF NOT EXISTS google_merchant_settings (
     last_update TIMESTAMP NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+-- Resource Library (technical docs / catalogs on /resources)
+CREATE TABLE IF NOT EXISTS resource_library (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    image VARCHAR(1000) NOT NULL,
+    tds_url VARCHAR(1000) NULL,
+    catalog_url VARCHAR(1000) NULL,
+    gradient VARCHAR(120) NOT NULL DEFAULT 'from-green-500 to-emerald-600',
+    icon VARCHAR(32) NOT NULL DEFAULT '🌱',
+    sort_order INT NOT NULL DEFAULT 0,
+    status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Default Resource Library entries (same content as original /resources page)
+INSERT IGNORE INTO resource_library (id, title, description, image, tds_url, catalog_url, gradient, icon, sort_order, status) VALUES
+(1, 'SYNTHETIC TURF SYSTEMS', 'Access the latest technical data sheet (TDS) and catalog for our Synthetic Turf Systems. Download the PDFs for detailed product specifications and installation guidelines.', 'https://tileandturf.com/wp-content/uploads/2025/06/izgara-uzerine_Interactive-LightMix-copy.jpg', '/syn-tds.pdf', '/syn-catalog.pdf', 'from-green-500 to-emerald-600', '🌱', 1, 'active'),
+(2, 'IPE TILE SYSTEMS', 'IPE (Brazilian Walnut) is renowned for its dense, hard-wearing nature and natural resistance to moisture, insects, and decay—making it an ideal choice for outdoor decking projects, rooftop terraces, patios, and commercial applications.', 'https://tileandturf.com/wp-content/uploads/2024/06/IMG_0959-1.jpg', '/ipe-tile-tech-sheet.pdf', NULL, 'from-amber-600 to-orange-700', '🪵', 2, 'active'),
+(3, 'ADJUSTABLE PEDESTAL SYSTEMS', 'Access comprehensive technical documentation for our Adjustable Pedestal Systems, engineered to provide flexible and durable support for raised flooring applications.', 'https://tileandturf.com/wp-content/uploads/2025/06/WhatsApp-Image-2025-06-15-at-16.45.00.jpeg', '/pedestal-2 (1).pdf', NULL, 'from-blue-500 to-indigo-600', '🔧', 3, 'active'),
+(4, 'PORCELAIN PAVERS SYSTEMS', 'Find detailed technical specifications and catalog, performance data, and installation guidelines for our porcelain pavers. Download the latest Technical Data Sheets and catalogs to ensure proper handling, application, and maintenance of your products.', 'https://tileandturf.com/wp-content/uploads/2025/07/Square-ARC_LDS_CH_CountyWide_3838.jpg', '/Porcelain-Paver-TDS-1.pdf', '/porcelain-paver-katalog.pdf', 'from-gray-600 to-slate-700', '🏗️', 4, 'active'),
+(5, 'GREEN ROOF SYSTEMS', 'Green Roof Systems are sustainable roofing solutions that combine vegetation, drainage, and structural support to create functional green spaces on rooftops. They improve thermal insulation, reduce stormwater runoff, and enhance building energy efficiency.', 'https://tileandturf.com/wp-content/uploads/2025/12/green-roof-system-3-scaled.png', 'https://tileandturf.com/wp-content/uploads/2025/12/TT-01-00.pdf', '/greenroof.pdf', 'from-teal-500 to-cyan-600', '🌿', 5, 'active');
 
 -- Product Variations Table
 CREATE TABLE IF NOT EXISTS product_variations (

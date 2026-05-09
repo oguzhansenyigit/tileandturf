@@ -3,11 +3,9 @@ import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
-import { useSettings } from '../context/SettingsContext'
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart()
-  const { catalogMode, phoneNumber } = useSettings()
   const [showComparison, setShowComparison] = useState(false)
 
   // Handle ESC key to close modal
@@ -35,56 +33,13 @@ const ProductCard = ({ product }) => {
     addToCart(product)
   }
 
-  const handleDownloadDatasheet = async (e) => {
+  const handleDownloadDatasheet = (e) => {
     e.preventDefault()
     e.stopPropagation()
     // Priority: product PDF > category PDF
-    let pdfUrl = product.datasheet_pdf || product.category_datasheet_pdf
+    const pdfUrl = product.datasheet_pdf || product.category_datasheet_pdf
     if (pdfUrl) {
-      // Ensure URL is absolute (starts with / or http)
-      if (!pdfUrl.startsWith('http') && !pdfUrl.startsWith('/')) {
-        pdfUrl = '/' + pdfUrl
-      }
-      
-      // Extract filename from URL BEFORE fetch
-      let filename = 'datasheet.pdf'
-      try {
-        const urlPath = pdfUrl.split('?')[0] // Remove query parameters
-        const urlParts = urlPath.split('/').filter(part => part !== '') // Remove empty parts
-        const originalFilename = urlParts[urlParts.length - 1]
-        if (originalFilename && originalFilename.endsWith('.pdf') && originalFilename.trim() !== '') {
-          filename = originalFilename
-        }
-      } catch (e) {
-        console.error('Error extracting filename from URL:', e, 'URL:', pdfUrl)
-      }
-      
-      
-      try {
-        // Fetch PDF and download directly
-        const response = await fetch(pdfUrl)
-        if (!response.ok) {
-          throw new Error('Failed to fetch PDF')
-        }
-        
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', filename) // Use setAttribute instead of download property
-        link.style.display = 'none'
-        document.body.appendChild(link)
-        link.click()
-        // Clean up after a short delay to ensure download starts
-        setTimeout(() => {
-          document.body.removeChild(link)
-          window.URL.revokeObjectURL(url)
-        }, 100)
-      } catch (error) {
-        // Error downloading datasheet - fallback to window.open
-        // Fallback to window.open if fetch fails
-        window.open(pdfUrl, '_blank')
-      }
+      window.open(pdfUrl, '_blank')
     } else {
       alert('Technical datasheet not available for this product.')
     }
@@ -94,17 +49,9 @@ const ProductCard = ({ product }) => {
     e.preventDefault()
     e.stopPropagation()
     // Priority: product PDF > category PDF
-    let pdfUrl = product.brochure_pdf || product.category_brochure_pdf
+    const pdfUrl = product.brochure_pdf || product.category_brochure_pdf
     if (pdfUrl) {
-      // Ensure URL is absolute (starts with / or http)
-      if (!pdfUrl.startsWith('http') && !pdfUrl.startsWith('/')) {
-        pdfUrl = '/' + pdfUrl
-      }
-      // Try to open PDF, if it fails show error
-      const newWindow = window.open(pdfUrl, '_blank')
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        alert('Unable to open PDF. Please check if pop-ups are blocked or the file exists.')
-      }
+      window.open(pdfUrl, '_blank')
     } else {
       alert('Product brochure not available for this product.')
     }
@@ -129,7 +76,7 @@ const ProductCard = ({ product }) => {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col h-full">
+    <div className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group">
       <Link to={getProductUrl(product)} className="block">
         <div className="relative h-64 overflow-hidden">
           <img
@@ -141,22 +88,19 @@ const ProductCard = ({ product }) => {
         </div>
       </Link>
       
-      <div className="p-4 flex flex-col flex-grow">
+      <div className="p-4">
         <Link to={`/product/${product.id}`}>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2 hover:text-primary transition-colors line-clamp-2 min-h-[3.5rem] flex items-start">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2 hover:text-primary transition-colors line-clamp-2">
             {product.name}
           </h3>
         </Link>
-        {product.description ? (
-          <p className="text-gray-600 text-sm mb-3 line-clamp-2 min-h-[2.5rem]">
+        {product.description && (
+          <p className="text-gray-600 text-sm mb-3 line-clamp-2">
             {product.description}
           </p>
-        ) : (
-          <div className="min-h-[2.5rem] mb-3"></div>
         )}
-        <div className="flex-grow"></div>
-        {!(product.call_for_pricing == 1 || product.call_for_pricing === true) && !catalogMode && (
-          <p className="text-xl font-bold text-primary mb-4 min-h-[2.5rem] flex items-center">
+        {!(product.call_for_pricing == 1 || product.call_for_pricing === true) && (
+          <p className="text-xl font-bold text-primary mb-4">
             {(() => {
               const isPackaged = product.is_packaged == 1 || product.is_packaged === true
               const isLengthEnabled = product.length_enabled == 1 || product.length_enabled === true
@@ -195,35 +139,41 @@ const ProductCard = ({ product }) => {
               // basePrice is the package price in database (admin panel "Price" field)
               const packagePrice = basePrice
               
-              // If show_unit_price is true, show pack_size value directly (no calculation)
+              // Priority: pcs_per_box > pack_size > 1
+              // pcs_per_box = kutudaki adet sayısı (doğru değer, öncelikli)
+              // pack_size = paket içindeki birim sayısı (fallback)
+              let piecesInBox
+              if (product.pcs_per_box != null && product.pcs_per_box !== '' && product.pcs_per_box !== 0) {
+                piecesInBox = parseFloat(product.pcs_per_box)
+              } else if (product.pack_size != null && product.pack_size !== '' && product.pack_size !== 0) {
+                piecesInBox = parseFloat(product.pack_size)
+              } else {
+                piecesInBox = 1
+              }
+              
+              // Calculate unit price: package price / pieces in box
+              const unitPrice = packagePrice / piecesInBox
+              
+              // Debug: Check values
               if (showUnitPrice) {
-                const packSizePrice = parseFloat(product.pack_size) || 0
+                console.log('📦 Product Card - Package Pricing:', product.name, {
+                  packagePrice,
+                  piecesInBox,
+                  unitPrice: unitPrice.toFixed(2),
+                  pcs_per_box: product.pcs_per_box,
+                  pack_size: product.pack_size,
+                  'Calculation': `${packagePrice} / ${piecesInBox} = ${unitPrice.toFixed(2)}`
+                })
+              }
+              
+              // If show_unit_price is true, show unit price "$X.XX/pcs Sold per box (X pcs per box)" format
+              if (showUnitPrice) {
                 const pcsPerBox = (product.pcs_per_box != null && product.pcs_per_box !== '' && product.pcs_per_box !== 0) ? ` (${product.pcs_per_box} pcs per box)` : ''
-                // Check show_price_unit_kit - handle both string and number values
-                // Also check if the field exists (might be undefined if column doesn't exist)
-                const showKit = product.show_price_unit_kit != null && 
-                               (product.show_price_unit_kit == 1 || 
-                                product.show_price_unit_kit === true || 
-                                product.show_price_unit_kit === '1' || 
-                                product.show_price_unit_kit === 1)
-                
-                // If show_price_unit_kit is enabled, show /kit instead of /pc
-                if (showKit) {
-                  return (
-                    <>
-                      ${packSizePrice.toFixed(2)}
-                      <span className="text-sm font-normal text-gray-600 ml-2">
-                        /kit
-                      </span>
-                    </>
-                  )
-                }
-                
                 return (
                   <>
-                    ${packSizePrice.toFixed(2)}
+                    ${unitPrice.toFixed(2)}
                     <span className="text-sm font-normal text-gray-600 ml-2">
-                      /pc Sold per box{pcsPerBox}
+                      /pcs Sold per box{pcsPerBox}
                     </span>
                   </>
                 )
@@ -233,61 +183,44 @@ const ProductCard = ({ product }) => {
               return <>${packagePrice.toFixed(2)}</>
             }
             
-            // Per piece pricing display - if show_unit_price is true but not packaged
+            // Per piece (adet) pricing display - if show_unit_price is true but not packaged
             const showUnitPrice = product.show_unit_price == 1 || product.show_unit_price === true
             if (!isPackaged && showUnitPrice) {
               return (
                 <>
                   ${basePrice.toFixed(2)}
                   <span className="text-sm font-normal text-gray-600 ml-2">
-                    /pc
+                    /pcs
                   </span>
                 </>
               )
             }
             
             // Regular price display
-            // Show /kit if show_price_unit_kit is enabled
-            // Check show_price_unit_kit - handle both string and number values
-            // Also check if the field exists (might be undefined if column doesn't exist)
-            const showKit = product.show_price_unit_kit != null && 
-                           (product.show_price_unit_kit == 1 || 
-                            product.show_price_unit_kit === true || 
-                            product.show_price_unit_kit === '1' || 
-                            product.show_price_unit_kit === 1)
-            if (showKit) {
-              return (
-                <>
-                  ${basePrice.toFixed(2)}
-                  <span className="text-sm font-normal text-gray-600 ml-2">
-                    /kit
-                  </span>
-                </>
-              )
-            }
             return <>${basePrice.toFixed(2)}</>
           })()}
           </p>
         )}
 
         {/* Action Buttons */}
-        <div className="space-y-2 mt-auto">
+        <div className="space-y-2">
           <div className="flex gap-2">
-            {product.call_for_pricing == 1 || product.call_for_pricing === true || catalogMode ? (
-              <a
-                href={`tel:+${phoneNumber}`}
+            {product.call_for_pricing == 1 || product.call_for_pricing === true ? (
+              <button
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  window.location.href = `tel:+${phoneNumber}`
+                  const message = `Hello, I'm interested in ${product.name}. Product ID: ${product.id} - Please provide pricing information.`
+                  const whatsappUrl = `https://wa.me/1234567890?text=${encodeURIComponent(message)}`
+                  window.open(whatsappUrl, '_blank')
                 }}
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-1"
               >
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
                 </svg>
-                <span>Call for Price</span>
-              </a>
+                <span>Call For Pricing</span>
+              </button>
             ) : (
               <button
                 onClick={handleAddToCart}

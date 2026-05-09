@@ -1,4 +1,6 @@
 <?php
+define('TILEANDTURF_SKIP_JSON_HEADERS', true);
+
 // Prevent any output before XML
 if (ob_get_level()) {
     ob_end_clean();
@@ -13,6 +15,7 @@ if (ob_get_level()) {
     ob_clean();
 }
 
+header_remove('Content-Type');
 header('Content-Type: application/xml; charset=utf-8');
 // Cache control - allow refresh but cache for 1 hour
 if (isset($_GET['t']) || isset($_GET['refresh'])) {
