@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
+import { useWhatsApp } from '../hooks/useWhatsApp'
 import axios from 'axios'
 import logoImage from '/logo.svg'
 
@@ -18,6 +19,7 @@ const Header = () => {
   const [isSearching, setIsSearching] = useState(false)
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false)
   const { getCartItemCount, openCart } = useCart()
+  const { openWhatsApp } = useWhatsApp()
   const cartCount = getCartItemCount()
 
   useEffect(() => {
@@ -29,37 +31,29 @@ const Header = () => {
     try {
       const response = await axios.get('/api/admin/menu.php')
       if (Array.isArray(response.data)) {
-        const allItems = response.data.filter(item => item.status === 'active')
+        const allItems = response.data.filter(
+          (item) => !item.status || item.status === 'active'
+        )
         
         // Find "OUR PRODUCTS" menu (by slug or name)
+        const hasParent = (item) => {
+          const pid = item.parent_id
+          return pid !== null && pid !== undefined && pid !== '' && pid !== '0' && Number(pid) !== 0
+        }
+
         const ourProducts = allItems.find(item => 
-          (item.slug === 'our-products' || item.slug === 'products' || item.name === 'OUR PRODUCTS') && !item.parent_id
+          (item.slug === 'our-products' || item.slug === 'products' || item.name === 'OUR PRODUCTS') && !hasParent(item)
         )
         
         if (ourProducts) {
           setOurProductsMenu(ourProducts)
           // Get submenu items (children of OUR PRODUCTS)
           const submenu = allItems
-            .filter(item => item.parent_id && parseInt(item.parent_id) === parseInt(ourProducts.id))
+            .filter(item => hasParent(item) && parseInt(item.parent_id, 10) === parseInt(ourProducts.id, 10))
             .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
           // Map menu items to category slugs - update paths to point to filtered shop pages
-          const mappedSubmenu = submenu.length > 0 ? submenu.map(item => {
-            const name = item.name?.toLowerCase() || ''
-            let path = item.link || item.path || '/products'
-            
-            // Map to category filter pages
-            if (name.includes('ipe tile') || name.includes('ipe-tile')) {
-              path = '/products/ipe-tile'
-            } else if (name.includes('ipe wood deck') || name.includes('ipe-wood-deck')) {
-              path = '/products/ipe-lumber'
-            } else if (name.includes('concrete pavers') || name.includes('concrete-pavers')) {
-              path = '/products/concrete-pavers-systems'
-            } else if (name.includes('porcelain paver') || name.includes('porcelain-paver')) {
-              path = '/products/porcelain-paver-systems'
-            } else if (name.includes('synthetic grass') || name.includes('synthetic-grass')) {
-              path = '/products/synthetic-grass'
-            }
-            
+          const mappedSubmenu = submenu.length > 0 ? submenu.map((item) => {
+            const path = item.link || item.path || '/products'
             return { ...item, path }
           }) : [
             { name: 'Adjustable Pedestal', path: '/products/adjustable-pedestal' },
@@ -84,7 +78,7 @@ const Header = () => {
         
         // Get other menu items (excluding OUR PRODUCTS)
         const otherItems = allItems
-          .filter(item => !item.parent_id && item.id !== ourProducts?.id)
+          .filter(item => !hasParent(item) && item.id !== ourProducts?.id)
           .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
         setMenuItems(otherItems)
       }
@@ -123,12 +117,6 @@ const Header = () => {
     } catch (error) {
       console.error('Error fetching top banner:', error)
     }
-  }
-
-  const handleWhatsApp = () => {
-    const message = 'Hello, I need support with your products.'
-    const whatsappUrl = `https://wa.me/1234567890?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
   }
 
   const handleSearch = async (e) => {
@@ -337,7 +325,7 @@ const Header = () => {
               </Link>
 
               <button
-                onClick={handleWhatsApp}
+                onClick={() => openWhatsApp()}
                 className="bg-green-600 hover:bg-green-700 text-white p-2.5 rounded-full transition-colors shadow-md"
                 title="WhatsApp Support"
               >
@@ -399,7 +387,7 @@ const Header = () => {
                 </svg>
               </button>
               <button
-                onClick={handleWhatsApp}
+                onClick={() => openWhatsApp()}
                 className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors"
                 title="WhatsApp Support"
               >

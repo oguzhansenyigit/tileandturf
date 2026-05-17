@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
+import { useWhatsApp } from '../hooks/useWhatsApp'
 import {
   SITE_ORIGIN,
   SITE_NAME,
@@ -17,6 +18,7 @@ import {
   getVariationOptionLabel,
   resolveVariationOptionEntry,
 } from '../utils/variationOption'
+import { PLACEHOLDER_IMAGE, productImageSrc } from '../utils/mediaUrl'
 import ImageComparison from '../components/ImageComparison'
 import ProductCard from '../components/ProductCard'
 import Slider from 'react-slick'
@@ -73,6 +75,7 @@ const ProductDetail = () => {
   const [productDetailPromo, setProductDetailPromo] = useState(null)
   const [categoryPDFs, setCategoryPDFs] = useState({ datasheet_pdf: null, brochure_pdf: null })
   const { addToCart, addToCartSilently } = useCart()
+  const { openWhatsApp } = useWhatsApp()
 
   useEffect(() => {
     fetchProduct()
@@ -438,8 +441,7 @@ const ProductDetail = () => {
 
   const handleWhatsApp = () => {
     const message = `Hello, I'm interested in ${product?.name}. Product ID: ${product?.id}`
-    const whatsappUrl = `https://wa.me/1234567890?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+    openWhatsApp(message)
   }
 
   const handleQuickOrder = () => {
@@ -564,8 +566,7 @@ const ProductDetail = () => {
   const handleWhatsAppShare = () => {
     const productUrl = product?.slug ? `/product/${product.slug}` : `/product/${product?.id}`
     const message = `Check out this product: ${product?.name} - ${window.location.origin}${productUrl}`
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+    openWhatsApp(message)
   }
 
   if (loading) {
@@ -624,9 +625,12 @@ const ProductDetail = () => {
           ) : (
             <div className="mb-6">
               <img
-                src={selectedImage || product.image || '/slider.webp'}
+                src={productImageSrc(selectedImage || product.image)}
                 alt={product.name}
                 className="w-full h-auto rounded-lg shadow-lg"
+                onError={(e) => {
+                  e.currentTarget.src = PLACEHOLDER_IMAGE
+                }}
               />
               {/* Product Detail Promo Banner - Mobile Only */}
               {productDetailPromo && (

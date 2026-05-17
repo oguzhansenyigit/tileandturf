@@ -17,12 +17,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $name = $conn->real_escape_string($data['name']);
     $slug = $conn->real_escape_string($data['slug']);
     $link = $conn->real_escape_string($data['link'] ?? '');
-    $parentId = isset($data['parent_id']) ? intval($data['parent_id']) : null;
+    $parentId = array_key_exists('parent_id', $data) && $data['parent_id'] !== null && $data['parent_id'] !== ''
+        ? intval($data['parent_id'])
+        : null;
     $orderIndex = isset($data['order_index']) ? intval($data['order_index']) : 0;
     $status = $conn->real_escape_string($data['status'] ?? 'active');
     
     $sql = "INSERT INTO menu_items (name, slug, link, parent_id, order_index, status) 
-            VALUES ('$name', '$slug', '$link', " . ($parentId ? $parentId : 'NULL') . ", $orderIndex, '$status')";
+            VALUES ('$name', '$slug', '$link', " . ($parentId !== null ? $parentId : 'NULL') . ", $orderIndex, '$status')";
     
     if ($conn->query($sql)) {
         echo json_encode(['success' => true, 'id' => $conn->insert_id]);
@@ -36,7 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $name = $conn->real_escape_string($data['name']);
     $slug = $conn->real_escape_string($data['slug']);
     $link = $conn->real_escape_string($data['link'] ?? '');
-    $parentId = isset($data['parent_id']) ? intval($data['parent_id']) : null;
+    $parentId = array_key_exists('parent_id', $data) && $data['parent_id'] !== null && $data['parent_id'] !== ''
+        ? intval($data['parent_id'])
+        : null;
     $orderIndex = isset($data['order_index']) ? intval($data['order_index']) : 0;
     $status = $conn->real_escape_string($data['status'] ?? 'active');
     
@@ -44,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             name = '$name',
             slug = '$slug',
             link = '$link',
-            parent_id = " . ($parentId ? $parentId : 'NULL') . ",
+            parent_id = " . ($parentId !== null ? $parentId : 'NULL') . ",
             order_index = $orderIndex,
             status = '$status'
             WHERE id = $id";

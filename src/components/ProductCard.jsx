@@ -3,10 +3,18 @@ import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
+import { useWhatsApp } from '../hooks/useWhatsApp'
+import { PLACEHOLDER_IMAGE, productImageSrc } from '../utils/mediaUrl'
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart()
+  const { openWhatsApp } = useWhatsApp()
   const [showComparison, setShowComparison] = useState(false)
+  const [imgSrc, setImgSrc] = useState(() => productImageSrc(product?.image))
+
+  useEffect(() => {
+    setImgSrc(productImageSrc(product?.image))
+  }, [product?.image])
 
   // Handle ESC key to close modal
   useEffect(() => {
@@ -62,8 +70,7 @@ const ProductCard = ({ product }) => {
     e.stopPropagation()
     const productUrl = getProductUrl(product)
     const message = `Check out this product: ${product.name} - ${window.location.origin}${productUrl}`
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+    openWhatsApp(message)
   }
 
   const handleShowComparison = (e) => {
@@ -80,9 +87,11 @@ const ProductCard = ({ product }) => {
       <Link to={getProductUrl(product)} className="block">
         <div className="relative h-64 overflow-hidden">
           <img
-            src={product.image || '/slider.webp'}
+            src={imgSrc}
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            loading="lazy"
+            onError={() => setImgSrc(PLACEHOLDER_IMAGE)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
         </div>
@@ -211,8 +220,7 @@ const ProductCard = ({ product }) => {
                   e.preventDefault()
                   e.stopPropagation()
                   const message = `Hello, I'm interested in ${product.name}. Product ID: ${product.id} - Please provide pricing information.`
-                  const whatsappUrl = `https://wa.me/1234567890?text=${encodeURIComponent(message)}`
-                  window.open(whatsappUrl, '_blank')
+                  openWhatsApp(message)
                 }}
                 className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-3 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center space-x-1"
               >

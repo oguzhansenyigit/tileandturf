@@ -233,7 +233,7 @@ INSERT IGNORE INTO settings (setting_key, setting_value, setting_type) VALUES
 ('top_banner_text', '🌿 Special Offer: Enjoy up to 25% OFF on all eco-friendly decking, tiles, and outdoor materials! Visit Our Shop →', 'text'),
 ('top_banner_link', '/products', 'text'),
 ('top_banner_status', 'active', 'text'),
-('whatsapp_number', '1234567890', 'text'),
+('whatsapp_number', '15167741808', 'text'),
 ('whatsapp_message', 'Hello, I need support with your products.', 'text');
 
 -- Default Menu Items
@@ -246,8 +246,18 @@ INSERT IGNORE INTO menu_items (name, slug, link, parent_id, order_index, status)
 ('CONCRETE PAVERS SYSTEM', 'concrete-pavers-system', '/products/concrete-pavers-system', NULL, 6, 'active'),
 ('RESOURCE LIBRARY', 'resource-library', '/resources', NULL, 7, 'active');
 
+-- OUR PRODUCTS alt menüsü (Header.jsx yedek listesi ile aynı)
+SET @our_products_id = (SELECT id FROM menu_items WHERE slug = 'our-products' LIMIT 1);
+INSERT IGNORE INTO menu_items (name, slug, link, parent_id, order_index, status) VALUES
+('Adjustable Pedestal', 'adjustable-pedestal', '/products/adjustable-pedestal', @our_products_id, 1, 'active'),
+('IPE Tile', 'ipe-tile', '/products/ipe-tile', @our_products_id, 2, 'active'),
+('IPE Wood Deck', 'ipe-wood-deck', '/products/ipe-lumber', @our_products_id, 3, 'active'),
+('Concrete Pavers', 'concrete-pavers', '/products/concrete-pavers-systems', @our_products_id, 4, 'active'),
+('Porcelain Paver', 'porcelain-paver', '/products/porcelain-paver-systems', @our_products_id, 5, 'active'),
+('Synthetic Grass', 'synthetic-grass', '/products/synthetic-grass', @our_products_id, 6, 'active');
+
 -- Default Social Media
 INSERT IGNORE INTO social_media (platform, url, icon, status) VALUES
-('whatsapp', 'https://wa.me/1234567890', 'whatsapp', 'active'),
+('whatsapp', 'https://wa.me/15167741808', 'whatsapp', 'active'),
 ('instagram', 'https://instagram.com', 'instagram', 'active');
 

@@ -150,7 +150,7 @@ foreach ($defaultMenuItems as $item) {
 
 // Insert default social media
 $defaultSocial = [
-    ['whatsapp', 'https://wa.me/1234567890', 'whatsapp', 'active'],
+    ['whatsapp', 'https://wa.me/15167741808', 'whatsapp', 'active'],
     ['instagram', 'https://instagram.com', 'instagram', 'active']
 ];
 

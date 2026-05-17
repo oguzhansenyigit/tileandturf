@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { useWhatsApp } from '../hooks/useWhatsApp'
 
 const ShippingCalculator = ({ cart, state, onShippingCalculated, showContactButtons = true }) => {
+  const { openWhatsApp } = useWhatsApp()
   const [shippingCost, setShippingCost] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -114,8 +116,7 @@ const ShippingCalculator = ({ cart, state, onShippingCalculated, showContactButt
 
   const handleWhatsApp = () => {
     const message = `Hello, I need a shipping quote for my order. State: ${state || 'Not selected'}`
-    const whatsappUrl = `https://wa.me/15167741808?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+    openWhatsApp(message)
   }
 
   const handlePhone = () => {

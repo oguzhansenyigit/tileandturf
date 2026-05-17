@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getProductUrl } from '../utils/slug'
+import { useWhatsApp } from '../hooks/useWhatsApp'
 import axios from 'axios'
 
 const TrackOrder = () => {
+  const { whatsappUrl } = useWhatsApp()
   const [orderNumber, setOrderNumber] = useState('')
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -320,7 +322,7 @@ const TrackOrder = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
-                href="https://wa.me/1234567890"
+                href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"

@@ -124,7 +124,7 @@ const SocialMediaManagement = () => {
                 onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                 className="w-full border border-gray-300 rounded-lg px-4 py-2"
                 required
-                placeholder="https://..."
+                placeholder="https://wa.me/15167741808"
               />
             </div>
             <div className="md:col-span-2">

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
+import { useWhatsApp } from '../hooks/useWhatsApp'
 
 const OrderConfirmation = () => {
   const { orderId } = useParams()
   const navigate = useNavigate()
   const { clearCart } = useCart()
+  const { openWhatsApp } = useWhatsApp()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -95,8 +97,7 @@ const OrderConfirmation = () => {
 
   const handleWhatsApp = () => {
     const message = `Hello, I have a question about my order: ${order.order_number || `ORD-${order.id}`}`
-    const whatsappUrl = `https://wa.me/15167741808?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+    openWhatsApp(message)
   }
 
   const handleCall = () => {

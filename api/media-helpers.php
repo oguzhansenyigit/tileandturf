@@ -18,7 +18,10 @@ function tileandturf_normalize_media_url($url)
     if ($url[0] !== '/') {
         $url = '/' . $url;
     }
-    return $url;
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'tileandturf.com';
+    return $scheme . '://' . $host . $url;
 }
 
 function tileandturf_normalize_product_media(array $row): array
