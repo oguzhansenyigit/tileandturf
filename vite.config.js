@@ -10,8 +10,16 @@ export default defineConfig({
         target: 'http://localhost',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
-  }
+      },
+      '/sitemap.xml': {
+        target: 'http://localhost',
+        changeOrigin: true,
+      },
+      '/robots.txt': {
+        target: 'http://localhost',
+        changeOrigin: true,
+      },
+    },
+  },
 })
 

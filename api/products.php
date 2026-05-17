@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+require_once __DIR__ . '/media-helpers.php';
 
 header('Content-Type: application/json');
 
@@ -55,13 +56,13 @@ try {
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY p.created_at DESC";
+                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
             } else {
                 $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY p.created_at DESC";
+                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
             }
             if ($limit) {
                 $sql .= " LIMIT $limit";
@@ -170,13 +171,13 @@ try {
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY p.created_at DESC";
+                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
             } else {
                 $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
-                        ORDER BY p.created_at DESC";
+                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
             }
             if ($limit) {
                 $sql .= " LIMIT $limit";
@@ -189,7 +190,7 @@ try {
         if ($result) {
             if ($result->num_rows > 0) {
                 while($row = $result->fetch_assoc()) {
-                    $products[] = $row;
+                    $products[] = tileandturf_normalize_product_media($row);
                 }
             }
             // Return single product if id or slug is used, otherwise return array

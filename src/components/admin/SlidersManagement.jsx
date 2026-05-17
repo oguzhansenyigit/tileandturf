@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { resolveSliderImage } from '../../utils/sliderImage'
 
 const SlidersManagement = () => {
   const [sliders, setSliders] = useState([])
@@ -369,7 +370,7 @@ const SlidersManagement = () => {
                 <td className="px-6 py-4 text-sm">{slider.order_index}</td>
                 <td className="px-6 py-4 text-sm font-semibold">{slider.title}</td>
                 <td className="px-6 py-4 text-sm">
-                  <img src={slider.image} alt={slider.title} className="w-20 h-12 object-cover rounded" />
+                  <img src={resolveSliderImage(slider.image)} alt={slider.title} className="w-20 h-12 object-cover rounded" />
                 </td>
                 <td className="px-6 py-4 text-sm">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${

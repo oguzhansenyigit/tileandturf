@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import slider1 from '/slider.webp'
 import slider2 from '/slider5.webp'
+import { resolveSliderImage } from '../utils/sliderImage'
 
 const HeroSlider = () => {
   const [slides, setSlides] = useState([])
@@ -33,7 +34,7 @@ const HeroSlider = () => {
         
         if (activeSliders.length > 0) {
           setSlides(activeSliders.map(slider => ({
-            image: slider.image,
+            image: resolveSliderImage(slider.image),
             title: slider.title,
             description: slider.description || '',
             buttonText: slider.button_text || 'Shop Now',

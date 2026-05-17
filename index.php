@@ -8,12 +8,14 @@ $bodyTrackingSnippets = '';
 
 try {
     ob_start();
+    ini_set('mysqli.connect_timeout', '3');
+    ini_set('default_socket_timeout', '3');
     require_once __DIR__ . '/api/config.php';
     ob_end_clean();
 
     header('Content-Type: text/html; charset=UTF-8');
 
-    if (isset($conn) && $conn instanceof mysqli && !$conn->connect_error) {
+    if (isset($conn) && $conn instanceof mysqli) {
         $sql = "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('head_tracking_snippets','body_tracking_snippets','google_ads_head_tag')";
         $res = $conn->query($sql);
         $map = [];
@@ -106,6 +108,9 @@ if ($html === false) {
     echo 'Failed to read built index.html';
     exit;
 }
+
+require_once __DIR__ . '/api/seo-document.php';
+$html = tileandturf_ensure_document_seo($html);
 
 if ($headTrackingSnippets !== '') {
     $html = str_replace('</head>', $headTrackingSnippets . "\n</head>", $html);

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { createSlug } from '../../utils/slug'
+import { getVariationOptionKey, getVariationOptionLabel } from '../../utils/variationOption'
+import HomepageProductOrder from './HomepageProductOrder'
 
 const ProductsManagement = () => {
   const [products, setProducts] = useState([])
@@ -573,6 +575,8 @@ const ProductsManagement = () => {
         </button>
       </div>
 
+      <HomepageProductOrder allProducts={allProducts} onOrderSaved={fetchProducts} />
+
       {/* Search and Filter Section */}
       <div className="bg-white rounded-lg shadow-md p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1033,10 +1037,12 @@ const ProductsManagement = () => {
                               <div className="mt-3 space-y-3 pl-6 border-l-2 border-primary">
                                 <p className="text-xs font-semibold text-gray-700 mb-2">Select which options to use for this product:</p>
                                 {Array.isArray(variation.options) && variation.options.length > 0 ? variation.options.map((option, idx) => {
+                                  const optionKey = getVariationOptionKey(option)
                                   const currentVariationData = variationData[variationId] || {}
-                                  const isOptionSelected = currentVariationData[option] !== undefined
-                                  const optionPrice = currentVariationData[option]?.price || ''
-                                  const optionValue = currentVariationData[option]?.value || option
+                                  const isOptionSelected = currentVariationData[optionKey] !== undefined
+                                  const optionPrice = currentVariationData[optionKey]?.price || ''
+                                  const optionValue = currentVariationData[optionKey]?.value || optionKey
+                                  const optionLabel = getVariationOptionLabel(option)
                                   
                                   return (
                                     <div key={idx} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -1052,13 +1058,13 @@ const ProductsManagement = () => {
                                             
                                             if (e.target.checked) {
                                               // Add option with default values
-                                              newVariationsData[variationId][option] = {
-                                                value: option,
+                                              newVariationsData[variationId][optionKey] = {
+                                                value: optionKey,
                                                 price: null
                                               }
                                             } else {
                                               // Remove option
-                                              delete newVariationsData[variationId][option]
+                                              delete newVariationsData[variationId][optionKey]
                                             }
                                             
                                             setProductForm({
@@ -1068,7 +1074,7 @@ const ProductsManagement = () => {
                                           }}
                                           className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                                         />
-                                        <span className="text-sm font-semibold text-gray-700">{option}</span>
+                                        <span className="text-sm font-semibold text-gray-700">{optionLabel}</span>
                                       </label>
                                       
                                       {isOptionSelected && (
@@ -1083,19 +1089,19 @@ const ProductsManagement = () => {
                                                 if (!newVariationsData[variationId]) {
                                                   newVariationsData[variationId] = {}
                                                 }
-                                                if (!newVariationsData[variationId][option]) {
-                                                  newVariationsData[variationId][option] = {}
+                                                if (!newVariationsData[variationId][optionKey]) {
+                                                  newVariationsData[variationId][optionKey] = {}
                                                 }
-                                                newVariationsData[variationId][option].value = e.target.value || option
+                                                newVariationsData[variationId][optionKey].value = e.target.value || optionKey
                                                 setProductForm({
                                                   ...productForm,
                                                   variations: JSON.stringify(newVariationsData)
                                                 })
                                               }}
                                               className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-                                              placeholder={option}
+                                              placeholder={optionKey}
                                             />
-                                            <p className="text-xs text-gray-400 mt-1">Leave empty to use default: {option}</p>
+                                            <p className="text-xs text-gray-400 mt-1">Leave empty to use default: {optionLabel}</p>
                                           </div>
                                           <div>
                                             <label className="text-xs text-gray-600 mb-1 block">Price Adjustment (optional)</label>
@@ -1108,10 +1114,10 @@ const ProductsManagement = () => {
                                                 if (!newVariationsData[variationId]) {
                                                   newVariationsData[variationId] = {}
                                                 }
-                                                if (!newVariationsData[variationId][option]) {
-                                                  newVariationsData[variationId][option] = {}
+                                                if (!newVariationsData[variationId][optionKey]) {
+                                                  newVariationsData[variationId][optionKey] = {}
                                                 }
-                                                newVariationsData[variationId][option].price = e.target.value ? parseFloat(e.target.value) : null
+                                                newVariationsData[variationId][optionKey].price = e.target.value ? parseFloat(e.target.value) : null
                                                 setProductForm({
                                                   ...productForm,
                                                   variations: JSON.stringify(newVariationsData)

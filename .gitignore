@@ -32,3 +32,10 @@ yarn-error.log*
 *.log
 /vendor/
 
+# Local API backup / uploads (do not publish)
+api (4)/
+api/uploads/images/*
+!api/uploads/images/.htaccess
+!api/uploads/images/.gitkeep
+cache/sitemap.xml
+

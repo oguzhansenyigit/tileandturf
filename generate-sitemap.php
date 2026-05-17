@@ -24,34 +24,26 @@ if (!$isCLI) {
     echo "<h1>Sitemap Generator</h1><pre>";
 }
 
-// Database configuration (same as api/config.php but without headers)
-define('DB_HOST', 'localhost');
-define('DB_USER', 'u632602124_tile');
-define('DB_PASS', '11241124Oguzhan.');
-define('DB_NAME', 'u632602124_tile1');
-
-// Enable error reporting for debugging
+// Database: api/config.php (same credentials as live site)
+define('TILEANDTURF_SKIP_JSON_HEADERS', true);
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', $isCLI ? 1 : 0);
 
-// Create connection
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
-
-// Check connection
-if ($conn->connect_error) {
+try {
+    require_once __DIR__ . '/api/config.php';
+} catch (Throwable $e) {
+    $message = 'Database connection failed: ' . $e->getMessage();
     if (!$isCLI) {
         echo "</pre>";
         echo "<div style='color:red;padding:15px;background:#ffe6e6;border:2px solid red;border-radius:5px;margin:20px 0;'>";
         echo "<strong>Database Connection Error:</strong><br>";
-        echo htmlspecialchars($conn->connect_error);
+        echo htmlspecialchars($message);
         echo "</div></body></html>";
     } else {
-        die("Error: Database connection failed: " . $conn->connect_error . "\n");
+        fwrite(STDERR, "Error: $message\n");
     }
-    exit();
+    exit(1);
 }
-
-$conn->set_charset("utf8");
 
 // Test query to verify connection works
 $testQuery = $conn->query("SELECT 1");
@@ -70,7 +62,10 @@ if (!$testQuery) {
 
 $baseUrl = 'https://tileandturf.com';
 $currentDate = date('Y-m-d');
-$sitemapFile = __DIR__ . '/sitemap.xml';
+$sitemapFiles = [
+    __DIR__ . '/sitemap.xml',
+    __DIR__ . '/public/sitemap.xml',
+];
 
 // Get all active products
 // Check which timestamp column exists
@@ -160,7 +155,9 @@ $xml .= '</url>' . "\n";
 // Individual products
 if ($productsResult && $productsResult->num_rows > 0) {
     while($row = $productsResult->fetch_assoc()) {
-        $productUrl = $baseUrl . '/product/' . $row['id'];
+        $slug = isset($row['slug']) ? trim((string)$row['slug']) : '';
+        $pathSegment = $slug !== '' ? rawurlencode($slug) : (string)$row['id'];
+        $productUrl = $baseUrl . '/product/' . $pathSegment;
         
         // Determine lastmod date
         if (isset($row['updated_at']) && $row['updated_at']) {
@@ -214,8 +211,20 @@ foreach ($staticPages as $page) {
 
 $xml .= '</urlset>';
 
-// Write to file
-$bytesWritten = file_put_contents($sitemapFile, $xml);
+// Write to file(s)
+$bytesWritten = false;
+$writtenPaths = [];
+foreach ($sitemapFiles as $sitemapFile) {
+    $dir = dirname($sitemapFile);
+    if (!is_dir($dir)) {
+        continue;
+    }
+    $n = file_put_contents($sitemapFile, $xml);
+    if ($n !== false) {
+        $bytesWritten = $n;
+        $writtenPaths[] = $sitemapFile;
+    }
+}
 
 if ($bytesWritten !== false) {
     $productCount = $productsResult->num_rows;
@@ -223,7 +232,9 @@ if ($bytesWritten !== false) {
     $totalUrls = 3 + $productCount + $categoryCount + 5; // homepage + products + resources + products + categories + static pages
     
     echo "<span class='success'>✓ Sitemap.xml generated successfully!</span>\n";
-    echo "  Location: $sitemapFile\n";
+    foreach ($writtenPaths as $sitemapFile) {
+        echo "  Location: $sitemapFile\n";
+    }
     echo "  Size: " . number_format($bytesWritten) . " bytes\n";
     echo "  Total URLs: $totalUrls\n";
     echo "    - Products: $productCount\n";
@@ -240,12 +251,14 @@ if ($bytesWritten !== false) {
 } else {
     $error = error_get_last();
     echo "<span class='error'>✗ Error: Could not write sitemap.xml file.</span>\n";
-    echo "  File: $sitemapFile\n";
+    foreach ($sitemapFiles as $sitemapFile) {
+        echo "  File: $sitemapFile\n";
+    }
     echo "  Check file permissions (directory must be writable)\n";
     if ($error) {
         echo "  PHP Error: " . htmlspecialchars($error['message']) . "\n";
     }
-    echo "\n  Try setting permissions: chmod 755 " . dirname($sitemapFile) . "\n";
+    echo "\n  Try setting permissions: chmod 755 " . dirname($sitemapFiles[0]) . "\n";
 }
 
 $conn->close();

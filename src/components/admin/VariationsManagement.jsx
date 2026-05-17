@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { getVariationOptionLabel, normalizeVariationOptions } from '../../utils/variationOption'
 
 const VariationsManagement = () => {
   const [variations, setVariations] = useState([])
@@ -22,7 +23,13 @@ const VariationsManagement = () => {
     setLoading(true)
     try {
       const response = await axios.get('/api/admin/variations.php')
-      setVariations(Array.isArray(response.data) ? response.data : [])
+      const list = Array.isArray(response.data) ? response.data : []
+      setVariations(
+        list.map((v) => ({
+          ...v,
+          options: normalizeVariationOptions(v.options),
+        }))
+      )
     } catch (error) {
       console.error('Error fetching variations:', error)
       setVariations([])
@@ -83,7 +90,7 @@ const VariationsManagement = () => {
     setVariationForm({
       name: variation.name || '',
       type: variation.type || 'select',
-      options: Array.isArray(variation.options) ? variation.options : [],
+      options: normalizeVariationOptions(variation.options),
       description: variation.description || ''
     })
     setShowVariationForm(true)
@@ -194,7 +201,7 @@ const VariationsManagement = () => {
                       key={index}
                       className="flex items-center space-x-2 bg-gray-100 px-3 py-1 rounded-lg"
                     >
-                      <span className="text-sm text-gray-700">{option}</span>
+                      <span className="text-sm text-gray-700">{getVariationOptionLabel(option)}</span>
                       <button
                         type="button"
                         onClick={() => handleRemoveOption(index)}
@@ -274,7 +281,7 @@ const VariationsManagement = () => {
                           key={index}
                           className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
                         >
-                          {option}
+                          {getVariationOptionLabel(option)}
                         </span>
                       ))
                     ) : (

@@ -23,15 +23,23 @@ define('DB_USER', 'u753039087_newweb');
 define('DB_PASS', '11241124Oguzhan.');
 define('DB_NAME', 'u753039087_newweb1');
 
-// Create connection
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+// Fail fast instead of hanging until nginx returns 504
+ini_set('mysqli.connect_timeout', '5');
+ini_set('default_socket_timeout', '5');
 
-// Check connection
-if ($conn->connect_error) {
+$conn = mysqli_init();
+if ($conn === false) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed: ' . $conn->connect_error]);
+    echo json_encode(['error' => 'Database init failed']);
+    exit();
+}
+$conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
+
+if (!$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME)) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Database connection failed: ' . mysqli_connect_error()]);
     exit();
 }
 
-$conn->set_charset("utf8");
+$conn->set_charset('utf8');
 

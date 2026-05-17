@@ -30,29 +30,51 @@ import PedestalCalculator from './pages/PedestalCalculator'
 import NotFound from './pages/NotFound'
 import { CartProvider } from './context/CartContext'
 import axios from 'axios'
-
-const DEFAULT_SEO = {
-  title: 'Tile and Turf | Premium Outdoor Flooring Systems',
-  description: 'Discover premium decking, pavers, synthetic turf, and pedestal systems with technical resources and fast support from Tile and Turf.',
-}
+import {
+  SITE_ORIGIN,
+  SITE_NAME,
+  SITE_AUTHOR,
+  SITE_PUBLISHER,
+  DEFAULT_ROBOTS,
+  HOME_TITLE,
+  HOME_DESCRIPTION,
+  HOME_KEYWORDS,
+  GENERIC_DESCRIPTION,
+  GENERIC_KEYWORDS,
+  PRODUCTS_TITLE,
+  PRODUCTS_DESCRIPTION,
+} from './config/siteSeo'
+import { applyDocumentSeo } from './utils/documentSeo'
 
 const ROUTE_SEO = {
-  '/': {
-    title: 'Tile and Turf | Premium Outdoor Flooring Systems',
-    description: 'Premium outdoor systems for synthetic turf, porcelain pavers, IPE tiles, and green roofs with expert support and technical documentation.',
-  },
+  '/': { title: HOME_TITLE, description: HOME_DESCRIPTION, keywords: HOME_KEYWORDS },
   '/products': {
-    title: 'Products | Tile and Turf',
-    description: 'Browse all Tile and Turf products including decking, pavers, synthetic systems, and installation-ready outdoor materials.',
+    title: PRODUCTS_TITLE,
+    description: PRODUCTS_DESCRIPTION,
+    keywords: GENERIC_KEYWORDS,
   },
   '/resources': {
     title: 'Resource Library | Tile and Turf',
-    description: 'Download technical data sheets and catalogs for synthetic turf, IPE tiles, pavers, and pedestal systems.',
+    description:
+      'Download technical data sheets and catalogs for synthetic turf, IPE tiles, pavers, and pedestal systems.',
+    keywords: GENERIC_KEYWORDS,
   },
   '/contact': {
     title: 'Contact | Tile and Turf',
-    description: 'Get in touch with Tile and Turf for technical support, product guidance, and project-specific recommendations.',
+    description:
+      'Get in touch with Tile and Turf for technical support, product guidance, and project-specific recommendations.',
+    keywords: GENERIC_KEYWORDS,
   },
+}
+
+const titleFromPath = (pathname) => {
+  const parts = pathname.split('/').filter(Boolean)
+  const last = parts[parts.length - 1] || ''
+  if (!last) return SITE_NAME
+  return last
+    .split('-')
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(' ')
 }
 
 // Track visitor on app load
@@ -83,25 +105,50 @@ function SeoMeta() {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    const seo = ROUTE_SEO[pathname] || DEFAULT_SEO
-    document.title = seo.title
+    const origin = SITE_ORIGIN.replace(/\/$/, '')
+    const canonicalUrl = `${origin}${pathname === '/' ? '/' : pathname}`
 
-    let descriptionTag = document.querySelector('meta[name="description"]')
-    if (!descriptionTag) {
-      descriptionTag = document.createElement('meta')
-      descriptionTag.setAttribute('name', 'description')
-      document.head.appendChild(descriptionTag)
-    }
-    descriptionTag.setAttribute('content', seo.description)
-
-    let canonicalTag = document.querySelector('link[rel="canonical"]')
-    if (!canonicalTag) {
-      canonicalTag = document.createElement('link')
-      canonicalTag.setAttribute('rel', 'canonical')
-      document.head.appendChild(canonicalTag)
+    if (pathname.startsWith('/product/')) {
+      return
     }
 
-    canonicalTag.setAttribute('href', `https://tileandturf.com${pathname}`)
+    if (pathname.startsWith('/admin')) {
+      applyDocumentSeo({
+        title: `Admin | ${SITE_NAME}`,
+        description: GENERIC_DESCRIPTION,
+        keywords: GENERIC_KEYWORDS,
+        canonicalUrl,
+        robots: 'noindex, nofollow',
+        author: SITE_AUTHOR,
+        publisher: SITE_PUBLISHER,
+      })
+      return
+    }
+
+    const preset = ROUTE_SEO[pathname]
+    if (preset) {
+      applyDocumentSeo({
+        title: preset.title,
+        description: preset.description,
+        keywords: preset.keywords,
+        canonicalUrl,
+        robots: DEFAULT_ROBOTS,
+        author: SITE_AUTHOR,
+        publisher: SITE_PUBLISHER,
+      })
+      return
+    }
+
+    const pageTitle = `${titleFromPath(pathname)} | ${SITE_NAME}`
+    applyDocumentSeo({
+      title: pageTitle,
+      description: GENERIC_DESCRIPTION,
+      keywords: GENERIC_KEYWORDS,
+      canonicalUrl,
+      robots: DEFAULT_ROBOTS,
+      author: SITE_AUTHOR,
+      publisher: SITE_PUBLISHER,
+    })
   }, [pathname])
 
   return null

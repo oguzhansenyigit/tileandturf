@@ -1,5 +1,6 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteBase /
 
   # Force HTTPS and single host (non-www) for SEO consistency
   RewriteCond %{HTTP_HOST} ^www\.tileandturf\.com$ [NC]
@@ -11,8 +12,11 @@
   # robots.txt - Always serve dynamic content
   RewriteRule ^robots\.txt$ api/robots.php [L,QSA,NC]
 
-  # sitemap.xml - Always serve dynamic content (avoid stale static file conflicts)
+  # sitemap.xml - always generate from database (active products + categories)
   RewriteRule ^sitemap\.xml$ api/sitemap.php [L,QSA,NC]
+
+  # Product images and uploads under /api/uploads/
+  RewriteRule ^api/uploads/ - [L]
   
   # API routes - MUST be before React Router catch-all
   RewriteCond %{REQUEST_URI} ^/api/ [NC]

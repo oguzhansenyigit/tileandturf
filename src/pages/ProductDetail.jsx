@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
+import {
+  SITE_ORIGIN,
+  SITE_NAME,
+  SITE_AUTHOR,
+  SITE_PUBLISHER,
+  DEFAULT_ROBOTS,
+  GENERIC_KEYWORDS,
+  GENERIC_DESCRIPTION,
+} from '../config/siteSeo'
+import { applyDocumentSeo } from '../utils/documentSeo'
+import {
+  getVariationOptionKey,
+  getVariationOptionLabel,
+  resolveVariationOptionEntry,
+} from '../utils/variationOption'
 import ImageComparison from '../components/ImageComparison'
 import ProductCard from '../components/ProductCard'
 import Slider from 'react-slick'
@@ -33,6 +48,12 @@ const PrevArrow = ({ onClick }) => (
   </button>
 )
 
+const stripHtmlToPlain = (html) =>
+  String(html || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
 const ProductDetail = () => {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -57,6 +78,39 @@ const ProductDetail = () => {
     fetchProduct()
     fetchProductDetailPromo()
   }, [slug])
+
+  useEffect(() => {
+    if (!product || loading) return
+    const slugOrId =
+      product.slug && String(product.slug).trim() !== ''
+        ? product.slug
+        : product.id
+    const pathSegment = encodeURIComponent(String(slugOrId))
+    const origin = SITE_ORIGIN.replace(/\/$/, '')
+    const canonicalUrl = `${origin}/product/${pathSegment}`
+    const title =
+      (product.meta_title && String(product.meta_title).trim()) ||
+      `${product.name} | ${SITE_NAME}`
+    let description =
+      (product.meta_description && String(product.meta_description).trim()) ||
+      stripHtmlToPlain(product.description)
+    if (description.length > 165) {
+      description = `${description.slice(0, 162)}...`
+    }
+    if (!description) description = GENERIC_DESCRIPTION
+    const keywords =
+      (product.meta_keywords && String(product.meta_keywords).trim()) ||
+      GENERIC_KEYWORDS
+    applyDocumentSeo({
+      title,
+      description,
+      keywords,
+      canonicalUrl,
+      robots: DEFAULT_ROBOTS,
+      author: SITE_AUTHOR,
+      publisher: SITE_PUBLISHER,
+    })
+  }, [product, loading])
 
   const fetchProductDetailPromo = async () => {
     try {
@@ -865,11 +919,16 @@ const ProductDetail = () => {
                       </div>
                       {/* Filter options: only show options that have price set */}
                       {(() => {
-                        const availableOptions = Array.isArray(variation.options) 
-                          ? variation.options.filter(option => {
-                              const optionData = variationOptions[option] || {}
-                              return optionData && optionData.price !== null && optionData.price !== undefined && optionData.price !== ''
-                            })
+                        const availableOptions = Array.isArray(variation.options)
+                          ? variation.options
+                              .map((option) => resolveVariationOptionEntry(variationOptions, option))
+                              .filter(
+                                ({ data }) =>
+                                  data &&
+                                  data.price !== null &&
+                                  data.price !== undefined &&
+                                  data.price !== ''
+                              )
                           : []
                         
                         // Show selectbox if more than 7 options, otherwise show buttons
@@ -914,22 +973,21 @@ const ProductDetail = () => {
                           }`}
                         >
                           <option value="">Select {variation.name}</option>
-                          {availableOptions.map((option, idx) => {
-                            const optionData = variationOptions[option] || {}
-                            const optionPrice = optionData.price || 0
+                          {availableOptions.map(({ key, label, data }, idx) => {
+                            const optionPrice = data.price || 0
                             return (
-                              <option key={idx} value={option}>
-                                {optionData.value || option} {optionPrice > 0 ? `(+$${parseFloat(optionPrice).toFixed(2)})` : ''}
+                              <option key={idx} value={key}>
+                                {data.value || label}{' '}
+                                {optionPrice > 0 ? `(+$${parseFloat(optionPrice).toFixed(2)})` : ''}
                               </option>
                             )
                           })}
                         </select>
                       ) : (
                         <div className="grid grid-cols-3 gap-2">
-                          {availableOptions.map((option, idx) => {
-                            const optionData = variationOptions[option] || {}
-                            const optionPrice = optionData.price || 0
-                            const isSelected = selectedOption === option
+                          {availableOptions.map(({ key, label, data }, idx) => {
+                            const optionPrice = data.price || 0
+                            const isSelected = selectedOption === key
                             
                             return (
                               <button
@@ -949,7 +1007,7 @@ const ProductDetail = () => {
                                     // Select this option (only one option per variation type)
                                     setSelectedVariations({
                                       ...selectedVariations,
-                                      [variationId]: option
+                                      [variationId]: key
                                     })
                                     if (optionPrice) {
                                       setVariationPrices({
@@ -970,7 +1028,7 @@ const ProductDetail = () => {
                                 }`}
                               >
                                 <div className="flex flex-col items-center">
-                                  <span className="leading-tight">{optionData.value || option}</span>
+                                  <span className="leading-tight">{data.value || label}</span>
                                   {optionPrice > 0 && (
                                     <span className="text-[10px] opacity-90 mt-0.5">
                                       (+${parseFloat(optionPrice).toFixed(2)})

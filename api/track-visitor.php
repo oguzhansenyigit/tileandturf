@@ -11,17 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Create active_visitors table if not exists
-$createTableSql = "CREATE TABLE IF NOT EXISTS active_visitors (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    session_id VARCHAR(255) NOT NULL UNIQUE,
-    ip_address VARCHAR(45),
-    user_agent TEXT,
-    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_last_activity (last_activity)
-)";
-$conn->query($createTableSql);
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Track visitor
     $sessionId = session_id() ?: uniqid('visitor_', true);
