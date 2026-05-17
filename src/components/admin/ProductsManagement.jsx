@@ -399,13 +399,6 @@ const ProductsManagement = () => {
         order_index: productForm.order_index !== undefined && productForm.order_index !== '' ? parseInt(productForm.order_index) || 0 : 0
       }
       
-      // Debug log
-      console.log('Submitting product data:', {
-        is_packaged: productData.is_packaged,
-        pcs_per_box_form: productForm.pcs_per_box,
-        pcs_per_box_data: productData.pcs_per_box
-      })
-
       let savedProduct
       if (editingProduct) {
         const response = await axios.put('/api/products.php', { ...productData, id: editingProduct.id })
@@ -416,9 +409,6 @@ const ProductsManagement = () => {
         savedProduct = response.data
         alert('Product added successfully!')
       }
-      
-      // Debug: Check if pcs_per_box was saved
-      console.log('Product saved, response:', savedProduct)
       
       setShowProductForm(false)
       setEditingProduct(null)

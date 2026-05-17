@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
@@ -14,12 +14,15 @@ import {
 } from '../config/siteSeo'
 import { applyDocumentSeo } from '../utils/documentSeo'
 import {
+  buildVariationsFromProductData,
+  getColorOptionVisual,
+  getOptionSizeLabels,
   getVariationOptionKey,
-  getVariationOptionLabel,
-  resolveVariationOptionEntry,
+  isDuplicateOfColorVariation,
 } from '../utils/variationOption'
-import { PLACEHOLDER_IMAGE, productImageSrc } from '../utils/mediaUrl'
+import { PLACEHOLDER_IMAGE, preloadImages, productImageSrc } from '../utils/mediaUrl'
 import ImageComparison from '../components/ImageComparison'
+import ProductVariationSelector from '../components/ProductVariationSelector'
 import ProductCard from '../components/ProductCard'
 import Slider from 'react-slick'
 import 'slick-carousel/slick/slick.css'
@@ -69,6 +72,9 @@ const ProductDetail = () => {
   const [variations, setVariations] = useState([])
   const [selectedVariations, setSelectedVariations] = useState({})
   const [variationPrices, setVariationPrices] = useState({})
+  const [selectedSize, setSelectedSize] = useState('')
+  const [variationLibraryLoading, setVariationLibraryLoading] = useState(false)
+  const productFetchGen = useRef(0)
   const [sqft, setSqft] = useState('')
   const [length, setLength] = useState(null)
   const [lengthInput, setLengthInput] = useState('')
@@ -81,6 +87,82 @@ const ProductDetail = () => {
     fetchProduct()
     fetchProductDetailPromo()
   }, [slug])
+
+  const primaryColorVariation = useMemo(
+    () => variations.find((v) => v.type === 'color'),
+    [variations]
+  )
+
+  const displayableVariations = useMemo(() => {
+    if (!variations.length) return []
+    let productVariationsJson = {}
+    try {
+      productVariationsJson = product?.variations
+        ? typeof product.variations === 'string'
+          ? JSON.parse(product.variations)
+          : product.variations
+        : {}
+    } catch {
+      productVariationsJson = {}
+    }
+    const colorVars = variations.filter((v) => v.type === 'color')
+    return variations.filter(
+      (v) => v.type === 'color' || !isDuplicateOfColorVariation(v, productVariationsJson, colorVars)
+    )
+  }, [variations, product?.variations])
+
+  const colorVisualByKey = useMemo(() => {
+    const map = new Map()
+    if (!primaryColorVariation?.options) return map
+    for (const option of primaryColorVariation.options) {
+      const key = getVariationOptionKey(option)
+      if (key) map.set(String(key), getColorOptionVisual(option))
+    }
+    return map
+  }, [primaryColorVariation])
+
+  const selectedColorRoomScene = useMemo(() => {
+    if (!primaryColorVariation) return null
+    const key = selectedVariations[primaryColorVariation.id]
+    if (!key) return null
+    return colorVisualByKey.get(String(key))?.roomScene || null
+  }, [primaryColorVariation, selectedVariations, colorVisualByKey])
+
+  const applyColorVisual = useCallback(
+    (optionKey) => {
+      if (!product) return
+      setShowComparison(false)
+      if (!optionKey) {
+        setSelectedImage(product.image || PLACEHOLDER_IMAGE)
+        return
+      }
+      const visual = colorVisualByKey.get(String(optionKey))
+      const fallback = product.image || PLACEHOLDER_IMAGE
+      if (!visual) {
+        setSelectedImage(fallback)
+        return
+      }
+      const preview = visual.swatch || visual.roomScene || fallback
+      setSelectedImage(preview)
+      if (visual.roomScene && visual.roomScene !== preview) {
+        const full = productImageSrc(visual.roomScene)
+        const img = new Image()
+        img.onload = () => setSelectedImage(visual.roomScene)
+        img.src = full
+      }
+    },
+    [product, colorVisualByKey]
+  )
+
+  useEffect(() => {
+    if (!primaryColorVariation) return
+    const urls = []
+    for (const visual of colorVisualByKey.values()) {
+      if (visual.swatch) urls.push(visual.swatch)
+      if (visual.roomScene) urls.push(visual.roomScene)
+    }
+    preloadImages(urls)
+  }, [primaryColorVariation, colorVisualByKey])
 
   useEffect(() => {
     if (!product || loading) return
@@ -142,7 +224,9 @@ const ProductDetail = () => {
       return
     }
     
+    const fetchGen = ++productFetchGen.current
     setLoading(true)
+    setVariationLibraryLoading(false)
     try {
       // Try to fetch by slug first, fallback to id if slug is numeric
       const isNumeric = /^\d+$/.test(slug)
@@ -174,21 +258,6 @@ const ProductDetail = () => {
         return
       }
       
-      console.log('Product loaded:', productData)
-      
-      // Debug: Check package pricing info
-      if (productData) {
-        console.log('📦 Package Pricing Info:', {
-          is_packaged: productData.is_packaged,
-          pack_size: productData.pack_size,
-          show_unit_price: productData.show_unit_price,
-          pcs_per_box: productData.pcs_per_box,
-          price: productData.price,
-          'is_packaged type': typeof productData.is_packaged,
-          'pack_size type': typeof productData.pack_size
-        })
-      }
-      
       // Redirect to slug URL if we got product by id and it has a slug
       if (productData && isNumeric && productData.slug && productData.slug.trim() !== '') {
         const newUrl = `/product/${encodeURIComponent(productData.slug)}`
@@ -197,6 +266,9 @@ const ProductDetail = () => {
         }
       }
       setProduct(productData)
+      setSelectedVariations({})
+      setVariationPrices({})
+      setSelectedSize('')
       // Reset length and sqft inputs when product changes
       setLength(null)
       setLengthInput('')
@@ -224,50 +296,50 @@ const ProductDetail = () => {
         setCategoryPDFs({ datasheet_pdf: null, brochure_pdf: null })
       }
       
-      // Parse variations
-      if (productData.variations) {
+      let variationsData = null
+      try {
+        if (productData.variations) {
+          variationsData =
+            typeof productData.variations === 'string'
+              ? JSON.parse(productData.variations)
+              : productData.variations
+        }
+      } catch (e) {
+        console.error('Error parsing variations:', e)
+        variationsData = null
+      }
+
+      const variationIds =
+        variationsData && typeof variationsData === 'object'
+          ? Object.keys(variationsData)
+              .filter((id) => id !== 'product_variations')
+              .map((id) => parseInt(id, 10))
+              .filter((id) => !Number.isNaN(id))
+          : []
+
+      if (variationIds.length > 0) {
+        setVariationLibraryLoading(true)
         try {
-          const variationsData = typeof productData.variations === 'string' 
-            ? JSON.parse(productData.variations) 
-            : productData.variations
-          
-          if (variationsData && Object.keys(variationsData).length > 0) {
-            // Fetch variation details
-            const variationIds = Object.keys(variationsData).map(id => parseInt(id))
-            const variationPromises = variationIds.map(variationId => 
-              axios.get(`/api/admin/variations.php?id=${variationId}`).catch(() => null)
-            )
-            const variationResults = await Promise.all(variationPromises)
-            const allVariations = variationResults
-              .filter(result => result && result.data)
-              .map(result => result.data)
-            
-            // Filter variations: only show variations that have at least one option with price set
-            const validVariations = allVariations.filter(variation => {
-              const variationId = variation.id
-              const variationOptions = variationsData[variationId] || {}
-              
-              // Check if at least one option has a price set
-              const hasPriceSetOption = Object.keys(variationOptions).some(option => {
-                const optionData = variationOptions[option]
-                return optionData && optionData.price !== null && optionData.price !== undefined && optionData.price !== ''
-              })
-              
-              return hasPriceSetOption
-            })
-            
+          const res = await axios.get('/api/admin/variations.php')
+          if (fetchGen === productFetchGen.current) {
+            const allList = Array.isArray(res.data) ? res.data : []
+            const validVariations = buildVariationsFromProductData(variationsData, allList)
             setVariations(validVariations)
-            
-            // Initialize with empty selections - user must select variations manually
-            setSelectedVariations({})
-            setVariationPrices({})
           }
         } catch (e) {
-          console.error('Error parsing variations:', e)
-          setVariations([])
+          console.error('Error fetching variation library:', e)
+          if (fetchGen === productFetchGen.current) {
+            setVariations(buildVariationsFromProductData(variationsData, []))
+          }
+        } finally {
+          if (fetchGen === productFetchGen.current) {
+            setVariationLibraryLoading(false)
+          }
         }
+      } else {
+        setVariations([])
       }
-      
+
       // Parse gallery images
       if (productData.gallery_images) {
         try {
@@ -346,16 +418,31 @@ const ProductDetail = () => {
   }
 
   const isVariationSelectionComplete = () => {
-    if (variations.length === 0) return true // No variations required
-    
-    // Check if at least one variation has a selection
-    return Object.keys(selectedVariations).length > 0 && 
-           variations.some(variation => selectedVariations[variation.id])
+    if (displayableVariations.length === 0) return true
+
+    const primaryColorId = primaryColorVariation?.id
+
+    const allVariationsSelected = displayableVariations.every((v) => {
+      if (v.type === 'color') {
+        return primaryColorId != null && Boolean(selectedVariations[primaryColorId])
+      }
+      return Boolean(selectedVariations[v.id])
+    })
+    if (!allVariationsSelected) return false
+
+    const key = primaryColorId != null ? selectedVariations[primaryColorId] : null
+    const selOpt = primaryColorVariation?.options?.find(
+      (o) => String(getVariationOptionKey(o)) === String(key)
+    )
+    const sizeOptions = getOptionSizeLabels(selOpt || {})
+    if (sizeOptions.length >= 2 && !selectedSize) return false
+
+    return true
   }
 
   const handleAddToCart = () => {
     if (!isVariationSelectionComplete()) {
-      alert('Please select at least one variation before adding to cart.')
+      alert('Please select all required options (color, size, etc.) before adding to cart.')
       return
     }
     
@@ -423,6 +510,7 @@ const ProductDetail = () => {
       price: priceForCart,
       selectedVariations: selectedVariations,
       variationPrices: variationPrices,
+      selectedSize: selectedSize || undefined,
       sqft: isSqftEnabled ? sqft : null,
       length: isLengthEnabled ? length : null,
       quantity: isSqftEnabled || isLengthEnabled ? 1 : quantity
@@ -514,6 +602,7 @@ const ProductDetail = () => {
       price: priceForCart,
       selectedVariations: selectedVariations,
       variationPrices: variationPrices,
+      selectedSize: selectedSize || undefined,
       sqft: isSqftEnabled ? sqft : null,
       length: isLengthEnabled ? length : null,
       quantity: isSqftEnabled || isLengthEnabled ? 1 : quantity
@@ -625,9 +714,12 @@ const ProductDetail = () => {
           ) : (
             <div className="mb-6">
               <img
+                key={productImageSrc(selectedImage || product.image)}
                 src={productImageSrc(selectedImage || product.image)}
                 alt={product.name}
                 className="w-full h-auto rounded-lg shadow-lg"
+                decoding="async"
+                fetchPriority="high"
                 onError={(e) => {
                   e.currentTarget.src = PLACEHOLDER_IMAGE
                 }}
@@ -653,10 +745,33 @@ const ProductDetail = () => {
           )}
 
           {/* Gallery Images */}
-          {(galleryImages.length > 0 || product.image) && (
+          {(galleryImages.length > 0 || product.image || selectedColorRoomScene) && (
             <div className="mt-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-3">Gallery</h3>
               <div className="grid grid-cols-4 gap-2">
+                {selectedColorRoomScene && (
+                  <button
+                    type="button"
+                    title="Room scene (selected color)"
+                    onClick={() => {
+                      setSelectedImage(selectedColorRoomScene)
+                      setShowComparison(false)
+                    }}
+                    className={`relative overflow-hidden rounded-lg border-2 transition-all ${
+                      selectedImage === selectedColorRoomScene && !showComparison
+                        ? 'border-primary ring-2 ring-primary'
+                        : 'border-amber-300 hover:border-amber-400'
+                    }`}
+                  >
+                    <img
+                      src={productImageSrc(selectedColorRoomScene)}
+                      alt=""
+                      className="w-full h-20 object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </button>
+                )}
                 {product.image && (
                   <button
                     onClick={() => {
@@ -786,18 +901,6 @@ const ProductDetail = () => {
                 // Calculate unit price: package price / pieces in box
                 const unitPrice = packagePrice / piecesInBox
                 
-                // Debug: Check values
-                if (showUnitPrice) {
-                  console.log('📦 Product Detail - Package Pricing:', product.name, {
-                    packagePrice,
-                    piecesInBox,
-                    unitPrice: unitPrice.toFixed(2),
-                    pcs_per_box: product.pcs_per_box,
-                    pack_size: product.pack_size,
-                    'Calculation': `${packagePrice} / ${piecesInBox} = ${unitPrice.toFixed(2)}`
-                  })
-                }
-                
                 // If show_unit_price is true, show unit price "$X.XX/pcs Sold per box (X pcs per box)" format
                 if (showUnitPrice) {
                   const pcsPerBox = (product.pcs_per_box != null && product.pcs_per_box !== '' && product.pcs_per_box !== 0) ? ` (${product.pcs_per_box} pcs per box)` : ''
@@ -883,185 +986,19 @@ const ProductDetail = () => {
             </button>
           </div>
 
-          {/* Variations */}
-          {variations.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-base font-semibold text-gray-800 mb-3">Select Variations *</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {variations.map((variation) => {
-                  const variationId = variation.id
-                  const selectedOption = selectedVariations[variationId]
-                  const productVariations = product.variations ? (typeof product.variations === 'string' ? JSON.parse(product.variations) : product.variations) : {}
-                  const variationOptions = productVariations[variationId] || {}
-                  
-                  const selectedPrice = variationPrices[variationId] || 0
-                  
-                  return (
-                    <div key={variation.id} className={`border-2 rounded-lg p-3 transition-colors ${
-                      selectedOption ? 'border-primary bg-primary/5' : 'border-red-300 bg-red-50'
-                    }`}>
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-gray-700 font-semibold text-sm">
-                            {variation.name} <span className="text-red-500">*</span>
-                          </label>
-                          {selectedOption && selectedPrice > 0 ? (
-                            <span className="text-xs font-semibold text-primary">
-                              +${selectedPrice.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-red-500 font-medium">
-                              Required
-                            </span>
-                          )}
-                        </div>
-                        {variation.type && (
-                          <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px]">
-                            {variation.type}
-                          </span>
-                        )}
-                      </div>
-                      {/* Filter options: only show options that have price set */}
-                      {(() => {
-                        const availableOptions = Array.isArray(variation.options)
-                          ? variation.options
-                              .map((option) => resolveVariationOptionEntry(variationOptions, option))
-                              .filter(
-                                ({ data }) =>
-                                  data &&
-                                  data.price !== null &&
-                                  data.price !== undefined &&
-                                  data.price !== ''
-                              )
-                          : []
-                        
-                        // Show selectbox if more than 7 options, otherwise show buttons
-                        return availableOptions.length > 7 ? (
-                        <select
-                          value={selectedOption || ''}
-                          onChange={(e) => {
-                            const option = e.target.value
-                            // If empty option is selected, deselect the variation
-                            if (!option || option === '') {
-                              const newVariations = { ...selectedVariations }
-                              delete newVariations[variationId]
-                              setSelectedVariations(newVariations)
-                              
-                              const newPrices = { ...variationPrices }
-                              delete newPrices[variationId]
-                              setVariationPrices(newPrices)
-                            } else {
-                              // Select this option (only one option per variation type)
-                              setSelectedVariations({
-                                ...selectedVariations,
-                                [variationId]: option
-                              })
-                              const optionData = variationOptions[option] || {}
-                              const optionPrice = optionData.price || 0
-                              if (optionPrice) {
-                                setVariationPrices({
-                                  ...variationPrices,
-                                  [variationId]: optionPrice
-                                })
-                              } else {
-                                const newPrices = { ...variationPrices }
-                                delete newPrices[variationId]
-                                setVariationPrices(newPrices)
-                              }
-                            }
-                          }}
-                          className={`w-full border-2 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 ${
-                            selectedOption 
-                              ? 'border-primary focus:border-primary focus:ring-primary text-gray-800' 
-                              : 'border-red-300 focus:border-red-500 focus:ring-red-500 text-gray-800'
-                          }`}
-                        >
-                          <option value="">Select {variation.name}</option>
-                          {availableOptions.map(({ key, label, data }, idx) => {
-                            const optionPrice = data.price || 0
-                            return (
-                              <option key={idx} value={key}>
-                                {data.value || label}{' '}
-                                {optionPrice > 0 ? `(+$${parseFloat(optionPrice).toFixed(2)})` : ''}
-                              </option>
-                            )
-                          })}
-                        </select>
-                      ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                          {availableOptions.map(({ key, label, data }, idx) => {
-                            const optionPrice = data.price || 0
-                            const isSelected = selectedOption === key
-                            
-                            return (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  // Toggle: If same option is selected, deselect it
-                                  if (isSelected) {
-                                    const newVariations = { ...selectedVariations }
-                                    delete newVariations[variationId]
-                                    setSelectedVariations(newVariations)
-                                    
-                                    const newPrices = { ...variationPrices }
-                                    delete newPrices[variationId]
-                                    setVariationPrices(newPrices)
-                                  } else {
-                                    // Select this option (only one option per variation type)
-                                    setSelectedVariations({
-                                      ...selectedVariations,
-                                      [variationId]: key
-                                    })
-                                    if (optionPrice) {
-                                      setVariationPrices({
-                                        ...variationPrices,
-                                        [variationId]: optionPrice
-                                      })
-                                    } else {
-                                      const newPrices = { ...variationPrices }
-                                      delete newPrices[variationId]
-                                      setVariationPrices(newPrices)
-                                    }
-                                  }
-                                }}
-                                className={`px-2 py-1.5 rounded-lg border-2 transition-all text-xs font-medium text-center ${
-                                  isSelected
-                                    ? 'border-primary bg-primary text-white shadow-md'
-                                    : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                                }`}
-                              >
-                                <div className="flex flex-col items-center">
-                                  <span className="leading-tight">{data.value || label}</span>
-                                  {optionPrice > 0 && (
-                                    <span className="text-[10px] opacity-90 mt-0.5">
-                                      (+${parseFloat(optionPrice).toFixed(2)})
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )
-                      })()}
-                      {selectedOption && (
-                        <p className="text-[10px] text-gray-500 mt-1.5">
-                          Selected: <span className="font-semibold text-gray-800">{selectedOption}</span>
-                          {selectedPrice > 0 && (
-                            <span className="ml-1 text-primary font-semibold">+${selectedPrice.toFixed(2)}</span>
-                          )}
-                        </p>
-                      )}
-                      {!selectedOption && (
-                        <p className="text-[10px] text-red-600 mt-1.5">Please select</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+          <ProductVariationSelector
+            product={product}
+            variations={variations}
+            variationLibraryLoading={variationLibraryLoading}
+            selectedVariations={selectedVariations}
+            setSelectedVariations={setSelectedVariations}
+            variationPrices={variationPrices}
+            setVariationPrices={setVariationPrices}
+            selectedSize={selectedSize}
+            setSelectedSize={setSelectedSize}
+            onColorVisualChange={applyColorVisual}
+          />
+
 
           {/* Sqft Input - Only show if sqft_enabled */}
           {(product.sqft_enabled == 1 || product.sqft_enabled === true) && (

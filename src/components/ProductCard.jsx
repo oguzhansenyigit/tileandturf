@@ -163,18 +163,6 @@ const ProductCard = ({ product }) => {
               // Calculate unit price: package price / pieces in box
               const unitPrice = packagePrice / piecesInBox
               
-              // Debug: Check values
-              if (showUnitPrice) {
-                console.log('📦 Product Card - Package Pricing:', product.name, {
-                  packagePrice,
-                  piecesInBox,
-                  unitPrice: unitPrice.toFixed(2),
-                  pcs_per_box: product.pcs_per_box,
-                  pack_size: product.pack_size,
-                  'Calculation': `${packagePrice} / ${piecesInBox} = ${unitPrice.toFixed(2)}`
-                })
-              }
-              
               // If show_unit_price is true, show unit price "$X.XX/pcs Sold per box (X pcs per box)" format
               if (showUnitPrice) {
                 const pcsPerBox = (product.pcs_per_box != null && product.pcs_per_box !== '' && product.pcs_per_box !== 0) ? ` (${product.pcs_per_box} pcs per box)` : ''

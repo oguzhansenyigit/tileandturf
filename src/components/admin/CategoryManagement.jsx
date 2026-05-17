@@ -72,11 +72,9 @@ const CategoryManagement = () => {
         brochure_pdf: categoryForm.brochure_pdf || ''
       }
 
-      console.log('Submitting category data:', categoryData) // Debug
 
       if (editingCategory) {
         const response = await axios.put('/api/categories.php', { ...categoryData, id: editingCategory.id })
-        console.log('Update response:', response.data) // Debug
         if (response.data.success) {
           alert('Category updated successfully!')
         } else {
@@ -84,7 +82,6 @@ const CategoryManagement = () => {
         }
       } else {
         const response = await axios.post('/api/categories.php', categoryData)
-        console.log('Create response:', response.data) // Debug
         if (response.data.success) {
           alert('Category added successfully!')
         } else {

@@ -25,4 +25,17 @@ export function productImageSrc(url) {
   return resolved || PLACEHOLDER_IMAGE
 }
 
+/** Preload images in the background (faster color / gallery switches). */
+export function preloadImages(urls) {
+  const seen = new Set()
+  for (const url of urls) {
+    const src = resolveMediaUrl(url)
+    if (!src || seen.has(src)) continue
+    seen.add(src)
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = src
+  }
+}
+
 export { PLACEHOLDER_IMAGE }
