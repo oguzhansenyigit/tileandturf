@@ -1,63 +1,98 @@
 <?php
 require_once 'config.php';
-
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+require_once __DIR__ . '/order-pricing.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
     
+    if (!$data || empty($data['items']) || !is_array($data['items'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid order data']);
+        exit();
+    }
+
+    $pricing = tileandturf_calculate_order_totals($conn, $data['items']);
+    if (!$pricing['ok']) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => $pricing['error']]);
+        exit();
+    }
+
+    $resolvedItems = $pricing['items'];
+    $total = floatval($pricing['total']);
+    
     // Generate order number
     $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
     
-    // Insert order
-    $firstName = $conn->real_escape_string($data['firstName']);
-    $lastName = $conn->real_escape_string($data['lastName']);
-    $email = $conn->real_escape_string($data['email']);
-    $phone = $conn->real_escape_string($data['phone'] ?? '');
-    $address = $conn->real_escape_string($data['address']);
-    $city = $conn->real_escape_string($data['city']);
-    $state = $conn->real_escape_string($data['state']);
-    $zipCode = $conn->real_escape_string($data['zipCode']);
-    $country = $conn->real_escape_string($data['country'] ?? 'United States');
-    $total = floatval($data['total']);
-    $paymentMethod = $conn->real_escape_string($data['paymentMethod'] ?? 'credit_card');
-    
-    $sql = "INSERT INTO orders (order_number, first_name, last_name, email, phone, address, city, state, zip_code, country, total, payment_method) 
-            VALUES ('$orderNumber', '$firstName', '$lastName', '$email', '$phone', '$address', '$city', '$state', '$zipCode', '$country', $total, '$paymentMethod')";
-    
-    if ($conn->query($sql)) {
-        $orderId = $conn->insert_id;
-        
-        // Insert order items
-        $items = $data['items'];
-        foreach ($items as $item) {
-            $productId = isset($item['id']) ? intval($item['id']) : null;
-            $productName = $conn->real_escape_string($item['name']);
-            $productPrice = floatval($item['price']);
-            $quantity = intval($item['quantity']);
-            $subtotal = $productPrice * $quantity;
-            
-            $itemSql = "INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal) 
-                       VALUES ($orderId, " . ($productId ? $productId : 'NULL') . ", '$productName', $productPrice, $quantity, $subtotal)";
-            $conn->query($itemSql);
-        }
-        
-        // Send emails
+    $firstName = trim($data['firstName'] ?? '');
+    $lastName = trim($data['lastName'] ?? '');
+    $email = trim($data['email'] ?? '');
+    $phone = trim($data['phone'] ?? '');
+    $address = trim($data['address'] ?? '');
+    $city = trim($data['city'] ?? '');
+    $state = trim($data['state'] ?? '');
+    $zipCode = trim($data['zipCode'] ?? '');
+    $country = trim($data['country'] ?? 'United States');
+    $paymentMethod = trim($data['paymentMethod'] ?? 'credit_card');
+
+    if ($firstName === '' || $lastName === '' || $email === '' || $address === '') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Missing required order fields']);
+        exit();
+    }
+
+    if (!tileandturf_validate_email($email)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid email address']);
+        exit();
+    }
+
+    $orderId = tileandturf_db_execute(
+        $conn,
+        'INSERT INTO orders (order_number, first_name, last_name, email, phone, address, city, state, zip_code, country, total, payment_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'ssssssssssds',
+        $orderNumber,
+        $firstName,
+        $lastName,
+        $email,
+        $phone,
+        $address,
+        $city,
+        $state,
+        $zipCode,
+        $country,
+        $total,
+        $paymentMethod
+    );
+
+    if ($orderId !== false) {
         $orderItems = [];
-        foreach ($items as $item) {
+        foreach ($resolvedItems as $item) {
+            $productId = intval($item['product_id']);
+            $productName = $item['product_name'];
+            $productPrice = floatval($item['product_price']);
+            $quantity = intval($item['quantity']);
+            $subtotal = floatval($item['subtotal']);
+
+            tileandturf_db_execute(
+                $conn,
+                'INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal)
+                 VALUES (?, ?, ?, ?, ?, ?)',
+                'iisdid',
+                $orderId,
+                $productId,
+                $productName,
+                $productPrice,
+                $quantity,
+                $subtotal
+            );
+
             $orderItems[] = [
-                'name' => $item['name'],
-                'quantity' => $item['quantity'],
-                'price' => $item['price'],
-                'subtotal' => floatval($item['price']) * intval($item['quantity'])
+                'name' => $productName,
+                'quantity' => $quantity,
+                'price' => $productPrice,
+                'subtotal' => $subtotal,
             ];
         }
         
@@ -233,7 +268,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @mail('info@tileandturf.com', $adminSubject, $adminBody, $adminHeaders);
         @mail('anil@pedexon.com', $adminSubject, $adminBody, $adminHeaders);
         
-        echo json_encode(['success' => true, 'orderId' => $orderId, 'orderNumber' => $orderNumber]);
+        $confirmationToken = tileandturf_order_confirmation_token($orderId, $orderNumber);
+
+        echo json_encode([
+            'success' => true,
+            'orderId' => $orderId,
+            'orderNumber' => $orderNumber,
+            'total' => $total,
+            'confirmationToken' => $confirmationToken,
+        ]);
     } else {
         echo json_encode(['success' => false, 'error' => $conn->error]);
     }

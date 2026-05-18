@@ -5,6 +5,7 @@ import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
 import { useWhatsApp } from '../hooks/useWhatsApp'
 import { PLACEHOLDER_IMAGE, productImageSrc } from '../utils/mediaUrl'
+import MoneyAmount from './MoneyAmount'
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart()
@@ -117,10 +118,9 @@ const ProductCard = ({ product }) => {
               
               // Sqft pricing display
               if (product.sqft_enabled == 1 || product.sqft_enabled === true) {
-              const pricePerSqft = parseFloat(product.sqft_price) || 0
               return (
                 <>
-                  ${pricePerSqft.toFixed(2)}
+                  <MoneyAmount amount={product.sqft_price} product={product} />
                   <span className="text-sm font-normal text-gray-600 ml-2">
                     /per sqft
                   </span>
@@ -130,10 +130,9 @@ const ProductCard = ({ product }) => {
             
             // Length pricing display
             if (isLengthEnabled && product.length_base_price) {
-              const pricePerLength = parseFloat(product.length_base_price) || 0
               return (
                 <>
-                  ${pricePerLength.toFixed(2)}
+                  <MoneyAmount amount={product.length_base_price} product={product} />
                   <span className="text-sm font-normal text-gray-600 ml-2">
                     /length
                   </span>
@@ -162,13 +161,12 @@ const ProductCard = ({ product }) => {
               
               // Calculate unit price: package price / pieces in box
               const unitPrice = packagePrice / piecesInBox
-              
               // If show_unit_price is true, show unit price "$X.XX/pcs Sold per box (X pcs per box)" format
               if (showUnitPrice) {
                 const pcsPerBox = (product.pcs_per_box != null && product.pcs_per_box !== '' && product.pcs_per_box !== 0) ? ` (${product.pcs_per_box} pcs per box)` : ''
                 return (
                   <>
-                    ${unitPrice.toFixed(2)}
+                    <MoneyAmount amount={unitPrice} product={product} />
                     <span className="text-sm font-normal text-gray-600 ml-2">
                       /pcs Sold per box{pcsPerBox}
                     </span>
@@ -177,7 +175,7 @@ const ProductCard = ({ product }) => {
               }
               
               // Otherwise show package price
-              return <>${packagePrice.toFixed(2)}</>
+              return <MoneyAmount amount={packagePrice} product={product} />
             }
             
             // Per piece (adet) pricing display - if show_unit_price is true but not packaged
@@ -185,7 +183,7 @@ const ProductCard = ({ product }) => {
             if (!isPackaged && showUnitPrice) {
               return (
                 <>
-                  ${basePrice.toFixed(2)}
+                  <MoneyAmount amount={basePrice} product={product} />
                   <span className="text-sm font-normal text-gray-600 ml-2">
                     /pcs
                   </span>
@@ -194,7 +192,7 @@ const ProductCard = ({ product }) => {
             }
             
             // Regular price display
-            return <>${basePrice.toFixed(2)}</>
+            return <MoneyAmount amount={basePrice} product={product} />
           })()}
           </p>
         )}

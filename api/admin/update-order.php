@@ -1,6 +1,8 @@
 <?php
 require_once '../config.php';
 
+tileandturf_require_admin();
+
 // Note: In production, implement proper authentication
 // For now, allowing access - add authentication as needed
 

@@ -24,6 +24,8 @@ import { PLACEHOLDER_IMAGE, preloadImages, productImageSrc } from '../utils/medi
 import ImageComparison from '../components/ImageComparison'
 import ProductVariationSelector from '../components/ProductVariationSelector'
 import ProductCard from '../components/ProductCard'
+import MoneyAmount from '../components/MoneyAmount'
+import { applyCategoryDiscount } from '../utils/pricing'
 import Slider from 'react-slick'
 import 'slick-carousel/slick/slick.css'
 import 'slick-carousel/slick/slick-theme.css'
@@ -409,12 +411,12 @@ const ProductDetail = () => {
           totalVariationPrice += parseFloat(price)
         }
       })
-      // If we have variation prices, use them; otherwise use base price as fallback
-      return totalVariationPrice > 0 ? totalVariationPrice : (parseFloat(product?.price) || 0)
+      const raw =
+        totalVariationPrice > 0 ? totalVariationPrice : parseFloat(product?.price) || 0
+      return applyCategoryDiscount(raw, product)
     }
     
-    // No variations selected, use base price
-    return parseFloat(product?.price) || 0
+    return applyCategoryDiscount(parseFloat(product?.price) || 0, product)
   }
 
   const isVariationSelectionComplete = () => {
@@ -825,24 +827,21 @@ const ProductDetail = () => {
                 
                 // Sqft pricing display
                 if (isSqftEnabled && product.sqft_price) {
-                let pricePerSqft = parseFloat(product.sqft_price) || 0
-                
+                let sqftDisplayAmount = parseFloat(product.sqft_price) || 0
                 if (hasVariations && Object.keys(variationPrices).length > 0) {
                   let totalVariationPrice = 0
-                  Object.keys(selectedVariations).forEach(variationId => {
+                  Object.keys(selectedVariations).forEach((variationId) => {
                     const price = variationPrices[variationId]
-                    if (price) {
-                      totalVariationPrice += parseFloat(price)
-                    }
+                    if (price) totalVariationPrice += parseFloat(price)
                   })
                   if (totalVariationPrice > 0) {
-                    pricePerSqft = totalVariationPrice
+                    sqftDisplayAmount = totalVariationPrice
                   }
                 }
-                
+
                 return (
                   <>
-                    ${pricePerSqft.toFixed(2)}
+                    <MoneyAmount amount={sqftDisplayAmount} product={product} />
                     <span className="text-sm font-normal text-gray-600 ml-2">
                       /per sqft
                     </span>
@@ -854,14 +853,11 @@ const ProductDetail = () => {
               if (isLengthEnabled && product.length_base_price) {
                 let pricePerLength = parseFloat(product.length_base_price) || 0
                 
-                // If variation is selected, use variation price as base price
                 if (hasVariations && Object.keys(variationPrices).length > 0) {
                   let totalVariationPrice = 0
-                  Object.keys(selectedVariations).forEach(variationId => {
+                  Object.keys(selectedVariations).forEach((variationId) => {
                     const price = variationPrices[variationId]
-                    if (price) {
-                      totalVariationPrice += parseFloat(price)
-                    }
+                    if (price) totalVariationPrice += parseFloat(price)
                   })
                   if (totalVariationPrice > 0) {
                     pricePerLength = totalVariationPrice
@@ -870,7 +866,7 @@ const ProductDetail = () => {
                 
                 return (
                   <>
-                    ${pricePerLength.toFixed(2)}
+                    <MoneyAmount amount={pricePerLength} product={product} />
                     <span className="text-sm font-normal text-gray-600 ml-2">
                       /length
                     </span>
@@ -906,7 +902,7 @@ const ProductDetail = () => {
                   const pcsPerBox = (product.pcs_per_box != null && product.pcs_per_box !== '' && product.pcs_per_box !== 0) ? ` (${product.pcs_per_box} pcs per box)` : ''
                   return (
                     <>
-                      ${unitPrice.toFixed(2)}
+                      <MoneyAmount amount={unitPrice} product={product} />
                       <span className="text-sm font-normal text-gray-600 ml-2">
                         /pcs Sold per box{pcsPerBox}
                       </span>
@@ -914,16 +910,14 @@ const ProductDetail = () => {
                   )
                 }
                 
-                // Otherwise show package price
-                return <>${packagePrice.toFixed(2)}</>
+                return <MoneyAmount amount={packagePrice} product={product} />
               }
               
-              // Per piece (adet) pricing display - if show_unit_price is true but not packaged
               const showUnitPriceForPiece = product.show_unit_price == 1 || product.show_unit_price === true
               if (!isPackaged && showUnitPriceForPiece) {
                 return (
                   <>
-                    ${finalPrice.toFixed(2)}
+                    <MoneyAmount amount={finalPrice} product={product} />
                     <span className="text-sm font-normal text-gray-600 ml-2">
                       /pcs
                     </span>
@@ -931,8 +925,7 @@ const ProductDetail = () => {
                 )
               }
               
-              // Regular price display
-              return <>${finalPrice.toFixed(2)}</>
+              return <MoneyAmount amount={finalPrice} product={product} />
             })()}
             </p>
           )}
@@ -1036,11 +1029,14 @@ const ProductDetail = () => {
                   }
                 }
                 
-                const totalPrice = parseFloat(sqft) * pricePerSqft
+                const discountedPerSqft = applyCategoryDiscount(pricePerSqft, product)
+                const totalPrice = parseFloat(sqft) * discountedPerSqft
                 
                 return (
                   <p className="text-sm text-gray-600 mt-1">
-                    Price per sqft: ${pricePerSqft.toFixed(2)} | Total: ${totalPrice.toFixed(2)}
+                    Price per sqft:{' '}
+                    <MoneyAmount amount={pricePerSqft} product={product} /> | Total: $
+                    {totalPrice.toFixed(2)}
                   </p>
                 )
               })()}
@@ -1084,7 +1080,14 @@ const ProductDetail = () => {
               />
               {product.length_base_price && product.length_increment_price && length && (
                 <p className="text-sm text-gray-600 mt-1">
-                  Base: ${parseFloat(product.length_base_price).toFixed(2)} | Increment: ${parseFloat(product.length_increment_price).toFixed(2)} per unit | Total: ${(parseFloat(product.length_base_price) + ((length - 1) * parseFloat(product.length_increment_price))).toFixed(2)}
+                  Base:{' '}
+                  <MoneyAmount amount={product.length_base_price} product={product} /> | Increment:{' '}
+                  <MoneyAmount amount={product.length_increment_price} product={product} /> per unit |
+                  Total: $
+                  {(
+                    applyCategoryDiscount(product.length_base_price, product) +
+                    (length - 1) * applyCategoryDiscount(product.length_increment_price, product)
+                  ).toFixed(2)}
                 </p>
               )}
             </div>

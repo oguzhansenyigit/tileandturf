@@ -1,6 +1,8 @@
 <?php
 require_once 'config.php';
 
+tileandturf_require_admin();
+
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -10,9 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $uploadDir = __DIR__ . '/uploads/images/';
 
-// Create upload directory if it doesn't exist
 if (!file_exists($uploadDir)) {
-    mkdir($uploadDir, 0777, true);
+    mkdir($uploadDir, 0755, true);
 }
 
 if (!isset($_FILES['file'])) {
@@ -21,27 +22,21 @@ if (!isset($_FILES['file'])) {
 }
 
 $file = $_FILES['file'];
-$allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-$maxSize = 5 * 1024 * 1024; // 5MB
+$validation = tileandturf_validate_uploaded_file(
+    $file,
+    ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
+    ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    5 * 1024 * 1024
+);
 
-// Validate file type
-if (!in_array($file['type'], $allowedTypes)) {
-    echo json_encode(['success' => false, 'error' => 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.']);
+if (!$validation['ok']) {
+    echo json_encode(['success' => false, 'error' => $validation['error']]);
     exit;
 }
 
-// Validate file size
-if ($file['size'] > $maxSize) {
-    echo json_encode(['success' => false, 'error' => 'File size exceeds 5MB limit.']);
-    exit;
-}
-
-// Generate unique filename
-$extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-$filename = uniqid('img_', true) . '.' . $extension;
+$filename = uniqid('img_', true) . '.' . $validation['extension'];
 $filepath = $uploadDir . $filename;
 
-// Move uploaded file
 if (move_uploaded_file($file['tmp_name'], $filepath)) {
     $url = '/api/uploads/images/' . $filename;
     echo json_encode(['success' => true, 'url' => $url, 'filename' => $filename]);
@@ -50,4 +45,3 @@ if (move_uploaded_file($file['tmp_name'], $filepath)) {
 }
 
 ?>
-

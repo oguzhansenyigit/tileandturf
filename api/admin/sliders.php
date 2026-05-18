@@ -1,13 +1,17 @@
 <?php
 require_once '../config.php';
 
-header('Content-Type: application/json');
+tileandturf_require_admin_for_write();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $id = isset($_GET['id']) ? intval($_GET['id']) : null;
+    $publicOnly = !tileandturf_admin_session_valid();
     
     if ($id) {
         $sql = "SELECT * FROM sliders WHERE id = $id";
+        if ($publicOnly) {
+            $sql .= " AND status = 'active'";
+        }
         $result = $conn->query($sql);
         if ($result->num_rows > 0) {
             echo json_encode($result->fetch_assoc());
@@ -15,7 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode(['success' => false, 'error' => 'Slider not found']);
         }
     } else {
-        $sql = "SELECT * FROM sliders ORDER BY order_index ASC";
+        $sql = $publicOnly
+            ? "SELECT * FROM sliders WHERE status = 'active' ORDER BY order_index ASC"
+            : "SELECT * FROM sliders ORDER BY order_index ASC";
         $result = $conn->query($sql);
         $sliders = [];
         if ($result) {

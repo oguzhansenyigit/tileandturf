@@ -1,15 +1,37 @@
 <?php
-// Error reporting for debugging (disable in production)
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// Sitemap, robots.txt, etc. define TILEANDTURF_SKIP_JSON_HEADERS before including this file.
+$localConfig = __DIR__ . '/config.local.php';
+$legacyConfig = __DIR__ . '/config.legacy.php';
+
+if (is_readable($localConfig)) {
+    require_once $localConfig;
+} elseif (is_readable($legacyConfig)) {
+    require_once $legacyConfig;
+}
+
+if (!defined('DB_HOST')) {
+    define('DB_HOST', defined('TILEANDTURF_DB_HOST') ? TILEANDTURF_DB_HOST : (getenv('DB_HOST') ?: 'localhost'));
+}
+if (!defined('DB_USER')) {
+    define('DB_USER', defined('TILEANDTURF_DB_USER') ? TILEANDTURF_DB_USER : (getenv('DB_USER') ?: ''));
+}
+if (!defined('DB_PASS')) {
+    define('DB_PASS', defined('TILEANDTURF_DB_PASS') ? TILEANDTURF_DB_PASS : (getenv('DB_PASS') ?: ''));
+}
+if (!defined('DB_NAME')) {
+    define('DB_NAME', defined('TILEANDTURF_DB_NAME') ? TILEANDTURF_DB_NAME : (getenv('DB_NAME') ?: ''));
+}
+
+require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/db-helpers.php';
+
 if (!defined('TILEANDTURF_SKIP_JSON_HEADERS')) {
     header('Content-Type: application/json');
-    header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type');
+    tileandturf_send_security_headers();
+    tileandturf_send_cors_headers();
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         http_response_code(200);
@@ -17,13 +39,12 @@ if (!defined('TILEANDTURF_SKIP_JSON_HEADERS')) {
     }
 }
 
-// Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'u753039087_newweb');
-define('DB_PASS', '11241124Oguzhan.');
-define('DB_NAME', 'u753039087_newweb1');
+if (DB_USER === '' || DB_NAME === '') {
+    http_response_code(503);
+    echo json_encode(['error' => 'Database is not configured. Create api/config.local.php from config.local.php.example']);
+    exit();
+}
 
-// Fail fast instead of hanging until nginx returns 504
 ini_set('mysqli.connect_timeout', '5');
 ini_set('default_socket_timeout', '5');
 
@@ -37,9 +58,10 @@ $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 5);
 
 if (!$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME)) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed: ' . mysqli_connect_error()]);
+    echo json_encode(['error' => 'Database connection failed']);
     exit();
 }
 
-$conn->set_charset('utf8');
+$conn->set_charset('utf8mb4');
 
+?>

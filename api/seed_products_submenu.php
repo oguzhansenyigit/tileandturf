@@ -5,6 +5,8 @@
  */
 require_once 'config.php';
 
+tileandturf_require_admin();
+
 header('Content-Type: application/json');
 
 $defaults = [

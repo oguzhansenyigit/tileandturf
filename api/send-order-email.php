@@ -1,17 +1,13 @@
 <?php
 require_once 'config.php';
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!tileandturf_rate_limit_allowed('send_order_email', 5, 600)) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'error' => 'Too many requests. Try again later.']);
+        exit();
+    }
+
     $data = json_decode(file_get_contents('php://input'), true);
     
     if (!$data) {
@@ -21,33 +17,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     $orderId = intval($data['order_id'] ?? 0);
-    $email = $conn->real_escape_string($data['email'] ?? '');
+    $email = trim($data['email'] ?? '');
+    $token = trim($data['token'] ?? '');
     
-    if (!$orderId || !$email) {
+    if (!$orderId || $email === '' || $token === '') {
         http_response_code(400);
-        echo json_encode(['success' => false, 'error' => 'Order ID and email are required']);
+        echo json_encode(['success' => false, 'error' => 'Order ID, email, and token are required']);
+        exit();
+    }
+
+    if (!tileandturf_validate_email($email)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid email address']);
         exit();
     }
     
-    // Get order details
-    $sql = "SELECT * FROM orders WHERE id = $orderId";
-    $result = $conn->query($sql);
+    $order = tileandturf_db_fetch_one(
+        $conn,
+        'SELECT * FROM orders WHERE id = ? LIMIT 1',
+        'i',
+        $orderId
+    );
     
-    if (!$result || $result->num_rows === 0) {
+    if (!$order) {
         http_response_code(404);
         echo json_encode(['success' => false, 'error' => 'Order not found']);
         exit();
     }
-    
-    $order = $result->fetch_assoc();
-    
-    // Get order items
-    $itemsSql = "SELECT * FROM order_items WHERE order_id = $orderId";
-    $itemsResult = $conn->query($itemsSql);
-    $orderItems = [];
-    while($row = $itemsResult->fetch_assoc()) {
-        $orderItems[] = $row;
+
+    $orderNumber = $order['order_number'] ?: ('ORD-' . $orderId);
+    if (!tileandturf_order_confirmation_token_valid($orderId, $orderNumber, $token)) {
+        tileandturf_rate_limit_fail('send_order_email', 5, 600);
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Invalid confirmation token']);
+        exit();
     }
+
+    if (strcasecmp(trim($order['email']), $email) !== 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Email does not match this order']);
+        exit();
+    }
+    
+    $orderItems = tileandturf_db_fetch_all(
+        $conn,
+        'SELECT * FROM order_items WHERE order_id = ?',
+        'i',
+        $orderId
+    );
     
     // Prepare email - HTML format with logo and signature
     $orderNumber = $order['order_number'] ?: "ORD-{$orderId}";
@@ -195,6 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     
     if (@mail($email, $subject, $body, $headers)) {
+        tileandturf_rate_limit_success('send_order_email');
         echo json_encode(['success' => true, 'message' => 'Email sent successfully']);
     } else {
         http_response_code(500);

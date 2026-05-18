@@ -50,7 +50,12 @@ const Header = () => {
           // Get submenu items (children of OUR PRODUCTS)
           const submenu = allItems
             .filter(item => hasParent(item) && parseInt(item.parent_id, 10) === parseInt(ourProducts.id, 10))
-            .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+            .sort((a, b) => {
+              const ao = Number(a.order_index) || 0
+              const bo = Number(b.order_index) || 0
+              if (ao !== bo) return ao - bo
+              return (Number(a.id) || 0) - (Number(b.id) || 0)
+            })
           // Map menu items to category slugs - update paths to point to filtered shop pages
           const mappedSubmenu = submenu.length > 0 ? submenu.map((item) => {
             const path = item.link || item.path || '/products'
@@ -79,7 +84,12 @@ const Header = () => {
         // Get other menu items (excluding OUR PRODUCTS)
         const otherItems = allItems
           .filter(item => !hasParent(item) && item.id !== ourProducts?.id)
-          .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+          .sort((a, b) => {
+            const ao = Number(a.order_index) || 0
+            const bo = Number(b.order_index) || 0
+            if (ao !== bo) return ao - bo
+            return (Number(a.id) || 0) - (Number(b.id) || 0)
+          })
         setMenuItems(otherItems)
       }
     } catch (error) {

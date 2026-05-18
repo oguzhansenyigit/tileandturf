@@ -1,7 +1,7 @@
 <?php
 require_once '../config.php';
 
-header('Content-Type: application/json');
+tileandturf_require_admin_for_write();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $id = isset($_GET['id']) ? intval($_GET['id']) : null;

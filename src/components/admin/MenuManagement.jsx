@@ -1,5 +1,81 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
+
+const sortByOrder = (a, b) => {
+  const ao = Number(a.order_index) || 0
+  const bo = Number(b.order_index) || 0
+  if (ao !== bo) return ao - bo
+  return (Number(a.id) || 0) - (Number(b.id) || 0)
+}
+
+const SortableMenuList = ({
+  items,
+  onReorder,
+  saving,
+  emptyMessage,
+  renderActions,
+  layout = 'submenu',
+  getParentName
+}) => {
+  const [orderedItems, setOrderedItems] = useState([])
+  const [dragIndex, setDragIndex] = useState(null)
+
+  useEffect(() => {
+    setOrderedItems([...items].sort(sortByOrder))
+  }, [items])
+
+  const handleDrop = (dropIndex) => {
+    if (dragIndex === null || dragIndex === dropIndex) {
+      setDragIndex(null)
+      return
+    }
+    const next = [...orderedItems]
+    const [moved] = next.splice(dragIndex, 1)
+    next.splice(dropIndex, 0, moved)
+    setOrderedItems(next)
+    setDragIndex(null)
+    onReorder(next)
+  }
+
+  if (orderedItems.length === 0) {
+    return <p className="text-center py-8 text-gray-500">{emptyMessage}</p>
+  }
+
+  return (
+    <ul className="divide-y divide-gray-200">
+      {orderedItems.map((item, index) => (
+        <li
+          key={item.id}
+          draggable={!saving}
+          onDragStart={() => setDragIndex(index)}
+          onDragEnd={() => setDragIndex(null)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={() => handleDrop(index)}
+          className={`flex flex-wrap items-center gap-3 px-6 py-4 bg-white transition-shadow ${
+            dragIndex === index ? 'bg-primary/5 shadow-inner' : 'hover:bg-gray-50'
+          } ${saving ? 'opacity-60 pointer-events-none' : 'cursor-grab active:cursor-grabbing'}`}
+        >
+          <span className="text-gray-400 select-none shrink-0" aria-hidden="true" title="Sürükleyerek sıralayın">
+            ⋮⋮
+          </span>
+          <span className="text-xs font-mono text-gray-500 w-6 shrink-0">{index + 1}</span>
+          <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-1 sm:gap-4">
+            <span className="text-sm font-semibold text-gray-800 truncate">{item.name}</span>
+            <span className="text-sm text-gray-600 truncate">{item.link}</span>
+            {layout === 'main' ? (
+              <span className="text-sm text-gray-500 truncate">
+                {getParentName ? getParentName(item.parent_id) : '-'}
+              </span>
+            ) : (
+              <span className="text-sm text-gray-500">{item.status || 'active'}</span>
+            )}
+          </div>
+          {renderActions?.(item)}
+        </li>
+      ))}
+    </ul>
+  )
+}
 
 const parseParentId = (value) => {
   if (value === null || value === undefined || value === '' || value === '0') return null
@@ -18,6 +94,7 @@ const MenuManagement = () => {
   const [loading, setLoading] = useState(true)
   const [editingItem, setEditingItem] = useState(null)
   const [addAsSubmenu, setAddAsSubmenu] = useState(false)
+  const [savingOrder, setSavingOrder] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -47,8 +124,17 @@ const MenuManagement = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const ourProducts = menuItems.find(isOurProductsItem)
+    const submenuCount = ourProducts
+      ? menuItems.filter((i) => parseParentId(i.parent_id) === Number(ourProducts.id)).length
+      : 0
+
     const payload = {
       ...formData,
+      order_index: addAsSubmenu
+        ? editingItem
+          ? Number(formData.order_index) || 0
+          : submenuCount
+        : Number(formData.order_index) || 0,
       parent_id: addAsSubmenu && ourProducts ? ourProducts.id : formData.parent_id
     }
 
@@ -165,6 +251,70 @@ const MenuManagement = () => {
     }
   }
 
+  const saveMenuOrder = async (nextList) => {
+    setSavingOrder(true)
+    try {
+      const response = await axios.post('/api/admin/reorder-menu.php', {
+        items: nextList.map((item, index) => ({
+          id: item.id,
+          order_index: index
+        }))
+      })
+      if (response.data?.success === false) {
+        alert(response.data.error || 'Sıralama kaydedilemedi')
+        fetchMenuItems()
+        return
+      }
+      setMenuItems((prev) => {
+        const orderMap = new Map(nextList.map((item, index) => [Number(item.id), index]))
+        return prev.map((item) =>
+          orderMap.has(Number(item.id))
+            ? { ...item, order_index: orderMap.get(Number(item.id)) }
+            : item
+        )
+      })
+    } catch (error) {
+      console.error('Error saving menu order:', error)
+      alert(error.response?.data?.error || 'Sıralama kaydedilirken hata oluştu')
+      fetchMenuItems()
+    } finally {
+      setSavingOrder(false)
+    }
+  }
+
+  const ourProductsMenu = useMemo(() => menuItems.find(isOurProductsItem), [menuItems])
+  const mainMenuItems = useMemo(
+    () => menuItems.filter((item) => !parseParentId(item.parent_id)).sort(sortByOrder),
+    [menuItems]
+  )
+  const subMenuItems = useMemo(() => {
+    if (ourProductsMenu) {
+      return menuItems
+        .filter((item) => parseParentId(item.parent_id) === Number(ourProductsMenu.id))
+        .sort(sortByOrder)
+    }
+    return menuItems.filter((item) => parseParentId(item.parent_id)).sort(sortByOrder)
+  }, [menuItems, ourProductsMenu])
+
+  const menuRowActions = (item, asSubmenu) => (
+    <div className="flex gap-2 shrink-0">
+      <button
+        type="button"
+        onClick={() => handleEdit(item, asSubmenu)}
+        className="text-primary hover:text-primary-dark font-semibold text-sm"
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        onClick={() => handleDelete(item.id)}
+        className="text-red-600 hover:text-red-800 font-semibold text-sm"
+      >
+        Delete
+      </button>
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -172,15 +322,6 @@ const MenuManagement = () => {
       </div>
     )
   }
-
-  // Show all menu items, including OUR PRODUCTS
-  const ourProductsMenu = menuItems.find(isOurProductsItem)
-  const mainMenuItems = menuItems.filter((item) => !parseParentId(item.parent_id))
-  const subMenuItems = ourProductsMenu
-    ? menuItems
-        .filter((item) => parseParentId(item.parent_id) === Number(ourProductsMenu.id))
-        .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-    : menuItems.filter((item) => parseParentId(item.parent_id))
 
   return (
     <div className="space-y-6">
@@ -214,6 +355,10 @@ const MenuManagement = () => {
         </p>
         <p>
           Düzenlemek için &quot;Sitedeki varsayılan alt menüyü içe aktar&quot; butonuna tıklayın.
+        </p>
+        <p className="font-semibold">
+          Sıralama: Alt menü ve ana menü listelerinde ⋮⋮ simgesinden tutup sürükleyin; sıra otomatik
+          kaydedilir ve sitede aynı şekilde görünür.
         </p>
         {!ourProductsMenu && (
           <p className="text-amber-800 font-semibold">
@@ -264,15 +409,30 @@ const MenuManagement = () => {
                 required
               />
             </div>
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">Order Index</label>
-              <input
-                type="number"
-                value={formData.order_index}
-                onChange={(e) => setFormData({ ...formData, order_index: parseInt(e.target.value) })}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2"
-              />
-            </div>
+            {!addAsSubmenu && (
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Order Index</label>
+                <input
+                  type="number"
+                  value={formData.order_index}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      order_index: Number.parseInt(e.target.value, 10) || 0
+                    })
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Ana menü sırası için aşağıdaki listeden sürükleyerek değiştirebilirsiniz.
+                </p>
+              </div>
+            )}
+            {addAsSubmenu && (
+              <p className="text-sm text-gray-600 md:col-span-2">
+                Alt menü sırası listeden sürükleyerek ayarlanır; yeni öğe listenin sonuna eklenir.
+              </p>
+            )}
             <div>
               <label className="block text-gray-700 font-semibold mb-2">Parent Menu</label>
               {addAsSubmenu && ourProductsMenu ? (
@@ -339,104 +499,57 @@ const MenuManagement = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <h3 className="text-xl font-bold text-gray-800 p-6 border-b">
-          OUR PRODUCTS Alt Menüleri ({subMenuItems.length})
-        </h3>
-        <table className="w-full">
-          <thead className="bg-emerald-50">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Order</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Label</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Link</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {subMenuItems.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm">{item.order_index}</td>
-                <td className="px-6 py-4 text-sm font-semibold">{item.name}</td>
-                <td className="px-6 py-4 text-sm">{item.link}</td>
-                <td className="px-6 py-4 text-sm">{item.status || 'active'}</td>
-                <td className="px-6 py-4 text-sm">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(item, true)}
-                      className="text-primary hover:text-primary-dark font-semibold"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-800 font-semibold"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {subMenuItems.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            Henüz alt menü yok. &quot;+ Alt Menü Ekle&quot; ile ekleyin veya Parent Menu olarak OUR PRODUCTS seçin.
-          </div>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-6 border-b">
+          <h3 className="text-xl font-bold text-gray-800">
+            OUR PRODUCTS Alt Menüleri ({subMenuItems.length})
+          </h3>
+          {savingOrder && (
+            <span className="text-sm font-semibold text-primary animate-pulse">Sıra kaydediliyor…</span>
+          )}
+        </div>
+        <div className="hidden sm:grid grid-cols-[auto_auto_1fr_1fr_auto] gap-4 px-6 py-3 bg-emerald-50 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+          <span className="w-10" />
+          <span className="w-6">#</span>
+          <span>Label</span>
+          <span>Link / Status</span>
+          <span className="text-right pr-2">Actions</span>
+        </div>
+        <SortableMenuList
+          items={subMenuItems}
+          onReorder={saveMenuOrder}
+          saving={savingOrder}
+          layout="submenu"
+          emptyMessage='Henüz alt menü yok. "+ Alt Menü Ekle" ile ekleyin veya varsayılan menüyü içe aktarın.'
+          renderActions={(item) => menuRowActions(item, true)}
+        />
       </div>
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <h3 className="text-xl font-bold text-gray-800 p-6 border-b">Ana Menü Öğeleri</h3>
-        <table className="w-full">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Order</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Label</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Link</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Parent</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {mainMenuItems.sort((a, b) => a.order_index - b.order_index).map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-sm">{item.order_index}</td>
-                <td className="px-6 py-4 text-sm font-semibold">{item.name}</td>
-                <td className="px-6 py-4 text-sm">{item.link}</td>
-                <td className="px-6 py-4 text-sm">{getParentName(item.parent_id)}</td>
-                <td className="px-6 py-4 text-sm">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(item, false)}
-                      className="text-primary hover:text-primary-dark font-semibold"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      className="text-red-600 hover:text-red-800 font-semibold"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {menuItems.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            No menu items found.
-          </div>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-2 p-6 border-b">
+          <h3 className="text-xl font-bold text-gray-800">Ana Menü Öğeleri</h3>
+          {savingOrder && (
+            <span className="text-sm font-semibold text-primary animate-pulse">Sıra kaydediliyor…</span>
+          )}
+        </div>
+        <div className="hidden sm:grid grid-cols-[auto_auto_1fr_1fr_auto] gap-4 px-6 py-3 bg-gray-100 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+          <span className="w-10" />
+          <span className="w-6">#</span>
+          <span>Label</span>
+          <span>Link / Parent</span>
+          <span className="text-right pr-2">Actions</span>
+        </div>
+        <SortableMenuList
+          items={mainMenuItems}
+          onReorder={saveMenuOrder}
+          saving={savingOrder}
+          layout="main"
+          getParentName={getParentName}
+          emptyMessage="Ana menü öğesi bulunamadı."
+          renderActions={(item) => menuRowActions(item, false)}
+        />
       </div>
     </div>
   )
 }
 
 export default MenuManagement
-

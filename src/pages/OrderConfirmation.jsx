@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import { useWhatsApp } from '../hooks/useWhatsApp'
 
 const OrderConfirmation = () => {
   const { orderId } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { clearCart } = useCart()
   const { openWhatsApp } = useWhatsApp()
@@ -30,33 +31,65 @@ const OrderConfirmation = () => {
         setLoading(false)
         return
       }
-      
+
+      const token =
+        searchParams.get('token') || sessionStorage.getItem('orderConfirmationToken') || ''
+
+      const cachedSummary = sessionStorage.getItem('orderSummary')
+      if (cachedSummary) {
+        try {
+          const parsed = JSON.parse(cachedSummary)
+          if (String(parsed.id) === String(orderId)) {
+            setOrder(parsed)
+            setLoading(false)
+          }
+        } catch {
+          // ignore invalid cache
+        }
+      }
+
+      if (!token) {
+        if (!cachedSummary) {
+          setOrder(null)
+          setLoading(false)
+        }
+        return
+      }
+
       try {
-        const response = await axios.get(`/api/admin/order-details.php?id=${orderId}`)
-        if (response.data && response.data.id) {
-          setOrder(response.data)
-        } else {
+        const response = await axios.get(
+          `/api/order-confirmation.php?id=${encodeURIComponent(orderId)}&token=${encodeURIComponent(token)}`
+        )
+        if (response.data?.success && response.data?.order) {
+          setOrder(response.data.order)
+        } else if (!cachedSummary) {
           setOrder(null)
         }
       } catch (error) {
         console.error('Error fetching order:', error)
-        setOrder(null)
+        if (!cachedSummary) {
+          setOrder(null)
+        }
       } finally {
         setLoading(false)
       }
     }
 
     fetchOrder()
-  }, [orderId])
+  }, [orderId, searchParams])
 
   const handleSendEmail = async () => {
     if (!order || !order.email) return
 
     setSendingEmail(true)
     try {
+      const confirmationToken =
+        searchParams.get('token') || sessionStorage.getItem('orderConfirmationToken') || ''
+
       const response = await axios.post('/api/send-order-email.php', {
         order_id: orderId,
-        email: order.email
+        email: order.email,
+        token: confirmationToken,
       })
       
       if (response.data.success) {

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import axios from 'axios'
+import { applyProductCategoryDiscount } from '../utils/pricing'
 
 const CartContext = createContext()
 
@@ -27,12 +28,13 @@ export const CartProvider = ({ children }) => {
   }, [cart])
 
   const addToCart = async (product, silent = false) => {
+    const pricedProduct = applyProductCategoryDiscount(product)
     setCart(prevCart => {
       // For sqft or length products, create unique cart items based on sqft/length values
       // Otherwise, check for existing items by id
-      if (product.sqft || product.length) {
+      if (pricedProduct.sqft || pricedProduct.length) {
         // Create unique key for sqft/length products
-        const uniqueKey = `${product.id}_${product.sqft || 0}_${product.length || 0}_${JSON.stringify(product.selectedVariations || {})}`
+        const uniqueKey = `${pricedProduct.id}_${pricedProduct.sqft || 0}_${pricedProduct.length || 0}_${JSON.stringify(pricedProduct.selectedVariations || {})}`
         const existingItem = prevCart.find(item => {
           const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}`
           return itemKey === uniqueKey
@@ -42,26 +44,26 @@ export const CartProvider = ({ children }) => {
           return prevCart.map(item => {
             const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}`
             return itemKey === uniqueKey
-              ? { ...item, quantity: (item.quantity || 1) + (product.quantity || 1) }
+              ? { ...item, quantity: (item.quantity || 1) + (pricedProduct.quantity || 1) }
               : item
           })
         }
-        return [...prevCart, { ...product, quantity: product.quantity || 1 }]
+        return [...prevCart, { ...pricedProduct, quantity: pricedProduct.quantity || 1 }]
       } else {
         // Standard product matching
         const existingItem = prevCart.find(item => 
-          item.id === product.id && 
-          JSON.stringify(item.selectedVariations || {}) === JSON.stringify(product.selectedVariations || {})
+          item.id === pricedProduct.id && 
+          JSON.stringify(item.selectedVariations || {}) === JSON.stringify(pricedProduct.selectedVariations || {})
         )
         if (existingItem) {
           return prevCart.map(item =>
-            item.id === product.id && 
-            JSON.stringify(item.selectedVariations || {}) === JSON.stringify(product.selectedVariations || {})
-              ? { ...item, quantity: item.quantity + (product.quantity || 1) }
+            item.id === pricedProduct.id && 
+            JSON.stringify(item.selectedVariations || {}) === JSON.stringify(pricedProduct.selectedVariations || {})
+              ? { ...item, quantity: item.quantity + (pricedProduct.quantity || 1) }
               : item
           )
         }
-        return [...prevCart, { ...product, quantity: product.quantity || 1 }]
+        return [...prevCart, { ...pricedProduct, quantity: pricedProduct.quantity || 1 }]
       }
     })
     

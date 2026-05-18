@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import adminHttp from '../utils/adminHttp'
 import Dashboard from '../components/admin/Dashboard'
 import ProductsManagement from '../components/admin/ProductsManagement'
 import OrdersManagement from '../components/admin/OrdersManagement'
@@ -16,40 +17,68 @@ import CategoryManagement from '../components/admin/CategoryManagement'
 const Admin = () => {
   const [password, setPassword] = useState('')
   const [authenticated, setAuthenticated] = useState(false)
+  const [authChecking, setAuthChecking] = useState(true)
   const [activeSection, setActiveSection] = useState('dashboard')
-  const [loading, setLoading] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
 
   useEffect(() => {
-    const auth = localStorage.getItem('adminAuth')
-    if (auth === 'true') {
-      setAuthenticated(true)
-    }
+    adminHttp
+      .get('/api/admin/session.php')
+      .then((response) => {
+        if (response.data?.authenticated) {
+          setAuthenticated(true)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecking(false))
   }, [])
+
+  useEffect(() => {
+    if (authenticated) {
+      axios.defaults.withCredentials = true
+    }
+    return () => {
+      axios.defaults.withCredentials = false
+    }
+  }, [authenticated])
 
   const handleLogin = async (e) => {
     e.preventDefault()
+    setLoginLoading(true)
     try {
-      const response = await axios.post('/api/admin/login.php', { password })
+      const response = await adminHttp.post('/api/admin/login.php', { password })
       if (response.data.success) {
         setAuthenticated(true)
-        localStorage.setItem('adminAuth', 'true')
+        setPassword('')
       } else {
         alert('Invalid password')
       }
     } catch (error) {
-      console.error('Login error:', error)
-      if (password === 'admin123') {
-        setAuthenticated(true)
-        localStorage.setItem('adminAuth', 'true')
-      } else {
-        alert('Invalid password')
-      }
+      const message =
+        error.response?.status === 429
+          ? 'Too many attempts. Please wait and try again.'
+          : 'Invalid password'
+      alert(message)
+    } finally {
+      setLoginLoading(false)
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await adminHttp.post('/api/admin/session.php')
+    } catch (error) {
+      // ignore
+    }
     setAuthenticated(false)
-    localStorage.removeItem('adminAuth')
+  }
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
   }
 
   if (!authenticated) {
@@ -67,13 +96,15 @@ const Admin = () => {
                 className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 required
                 autoFocus
+                disabled={loginLoading}
               />
             </div>
             <button
               type="submit"
-              className="w-full bg-primary hover:bg-primary-dark text-white py-3 px-6 rounded-lg font-semibold transition-colors"
+              disabled={loginLoading}
+              className="w-full bg-primary hover:bg-primary-dark text-white py-3 px-6 rounded-lg font-semibold transition-colors disabled:opacity-60"
             >
-              Login
+              {loginLoading ? 'Logging in...' : 'Login'}
             </button>
           </form>
         </div>
@@ -93,12 +124,11 @@ const Admin = () => {
     { id: 'settings', label: 'Settings', icon: '⚙️' },
     { id: 'social', label: 'Social Media', icon: '📱' },
     { id: 'google', label: 'Google Merchant', icon: '🛍️' },
-    { id: 'seo', label: 'SEO Management', icon: '🔍' }
+    { id: 'seo', label: 'SEO Management', icon: '🔍' },
   ]
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200">
         <div className="flex items-center justify-between px-6 py-4">
           <h1 className="text-2xl font-bold text-gray-800">Admin Panel</h1>
@@ -122,7 +152,6 @@ const Admin = () => {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
         <aside className="w-64 bg-white shadow-sm min-h-screen">
           <nav className="p-4">
             <ul className="space-y-2">
@@ -145,7 +174,6 @@ const Admin = () => {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <main className="flex-1 p-6">
           {activeSection === 'dashboard' && <Dashboard />}
           {activeSection === 'products' && <ProductsManagement />}

@@ -1,25 +1,23 @@
 <?php
 require_once 'config.php';
+require_once __DIR__ . '/category-helpers.php';
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        // Check if PDF columns exist
-        $checkColumns = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                        WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                        AND TABLE_NAME = 'categories' 
-                        AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf', 'parent_id')";
-        $colResult = $conn->query($checkColumns);
-        $hasColumns = false;
-        if ($colResult) {
-            $colRow = $colResult->fetch_assoc();
-            $hasColumns = $colRow['count'] >= 3;
+        $select = 'id, name, slug, description, created_at';
+        if (tileandturf_category_column_exists($conn, 'datasheet_pdf')) {
+            $select .= ', datasheet_pdf';
         }
-        
-        if ($hasColumns) {
-            $sql = "SELECT id, name, slug, description, datasheet_pdf, brochure_pdf, parent_id, created_at FROM categories ORDER BY created_at DESC";
-        } else {
-            $sql = "SELECT * FROM categories ORDER BY created_at DESC";
+        if (tileandturf_category_column_exists($conn, 'brochure_pdf')) {
+            $select .= ', brochure_pdf';
         }
+        if (tileandturf_category_column_exists($conn, 'parent_id')) {
+            $select .= ', parent_id';
+        }
+        if (tileandturf_category_column_exists($conn, 'discount_percent')) {
+            $select .= ', discount_percent';
+        }
+        $sql = "SELECT $select FROM categories ORDER BY created_at DESC";
         
         $result = $conn->query($sql);
         
@@ -32,6 +30,7 @@ try {
         
         echo json_encode($categories);
     } else if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        tileandturf_require_admin();
         $data = json_decode(file_get_contents('php://input'), true);
         
         // Check if this is an update (has id)
@@ -56,13 +55,14 @@ try {
                 $hasColumns = $colRow['count'] >= 3;
             }
             
+            $discountSet = tileandturf_category_discount_set_fragment($conn, $data);
             if ($hasColumns) {
                 $sql = "UPDATE categories SET name = '$name', slug = '$slug', description = '$description', 
                         datasheet_pdf = " . ($datasheet_pdf ? "'$datasheet_pdf'" : 'NULL') . ", 
                         brochure_pdf = " . ($brochure_pdf ? "'$brochure_pdf'" : 'NULL') . ", 
-                        parent_id = $parent_id WHERE id = $id";
+                        parent_id = $parent_id$discountSet WHERE id = $id";
             } else {
-                $sql = "UPDATE categories SET name = '$name', slug = '$slug', description = '$description' WHERE id = $id";
+                $sql = "UPDATE categories SET name = '$name', slug = '$slug', description = '$description'$discountSet WHERE id = $id";
             }
             
             if ($conn->query($sql)) {
@@ -103,14 +103,17 @@ try {
                 $hasColumns = $colRow['count'] >= 3;
             }
             
+            $discountSql = tileandturf_category_discount_sql_value($conn, $data['discount_percent'] ?? null);
+            $discountInsert = ($discountSql !== null) ? ', discount_percent' : '';
+            $discountValues = ($discountSql !== null) ? ", $discountSql" : '';
             if ($hasColumns) {
-                $sql = "INSERT INTO categories (name, slug, description, datasheet_pdf, brochure_pdf, parent_id) 
+                $sql = "INSERT INTO categories (name, slug, description, datasheet_pdf, brochure_pdf, parent_id$discountInsert) 
                         VALUES ('$name', '$slug', '$description', 
                         " . ($datasheet_pdf ? "'$datasheet_pdf'" : 'NULL') . ", 
                         " . ($brochure_pdf ? "'$brochure_pdf'" : 'NULL') . ", 
-                        " . ($parent_id ? $parent_id : 'NULL') . ")";
+                        " . ($parent_id ? $parent_id : 'NULL') . "$discountValues)";
             } else {
-                $sql = "INSERT INTO categories (name, slug, description) VALUES ('$name', '$slug', '$description')";
+                $sql = "INSERT INTO categories (name, slug, description$discountInsert) VALUES ('$name', '$slug', '$description'$discountValues)";
             }
             
             if ($conn->query($sql)) {
@@ -121,6 +124,7 @@ try {
             }
         }
     } else if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+        tileandturf_require_admin();
         $data = json_decode(file_get_contents('php://input'), true);
         $id = intval($data['id'] ?? 0);
         
@@ -154,33 +158,24 @@ try {
             $hasColumns = $colRow['count'] >= 3;
         }
         
+        $discountSet = tileandturf_category_discount_set_fragment($conn, $data);
         if ($hasColumns) {
             $sql = "UPDATE categories SET name = '$name', slug = '$slug', description = '$description', 
                     datasheet_pdf = " . ($datasheet_pdf ? "'$datasheet_pdf'" : 'NULL') . ", 
                     brochure_pdf = " . ($brochure_pdf ? "'$brochure_pdf'" : 'NULL') . ", 
-                    parent_id = $parent_id WHERE id = $id";
+                    parent_id = $parent_id$discountSet WHERE id = $id";
         } else {
-            $sql = "UPDATE categories SET name = '$name', slug = '$slug', description = '$description' WHERE id = $id";
+            $sql = "UPDATE categories SET name = '$name', slug = '$slug', description = '$description'$discountSet WHERE id = $id";
         }
         
-        // Debug logging
-        error_log("Category UPDATE SQL: " . $sql);
-        error_log("Category UPDATE Data: datasheet_pdf=" . $datasheet_pdf . ", brochure_pdf=" . $brochure_pdf);
-        
         if ($conn->query($sql)) {
-            // Verify the update
-            $verifySql = "SELECT datasheet_pdf, brochure_pdf FROM categories WHERE id = $id";
-            $verifyResult = $conn->query($verifySql);
-            if ($verifyResult) {
-                $verifyRow = $verifyResult->fetch_assoc();
-                error_log("Category UPDATE Verified: datasheet_pdf=" . ($verifyRow['datasheet_pdf'] ?? 'NULL') . ", brochure_pdf=" . ($verifyRow['brochure_pdf'] ?? 'NULL'));
-            }
             echo json_encode(['success' => true]);
         } else {
             http_response_code(500);
             echo json_encode(['success' => false, 'error' => $conn->error]);
         }
     } else if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        tileandturf_require_admin();
         $id = intval($_GET['id'] ?? 0);
         
         if (!$id) {

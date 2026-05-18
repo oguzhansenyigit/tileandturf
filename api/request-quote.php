@@ -1,17 +1,12 @@
 <?php
 require_once 'config.php';
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!tileandturf_rate_limit_allowed('quote_request', 10, 600)) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'error' => 'Too many requests. Try again later.']);
+        exit();
+    }
     $data = json_decode(file_get_contents('php://input'), true);
     
     if (!$data) {
@@ -20,19 +15,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
     
-    $name = $conn->real_escape_string($data['name'] ?? '');
-    $email = $conn->real_escape_string($data['email'] ?? '');
-    $phone = $conn->real_escape_string($data['phone'] ?? '');
-    $company = $conn->real_escape_string($data['company'] ?? '');
-    $productName = $conn->real_escape_string($data['product_name'] ?? '');
-    $productId = isset($data['product_id']) ? intval($data['product_id']) : null;
-    $quantity = $conn->real_escape_string($data['quantity'] ?? '');
-    $message = $conn->real_escape_string($data['message'] ?? '');
+    $name = trim($data['name'] ?? '');
+    $email = trim($data['email'] ?? '');
+    $phone = trim($data['phone'] ?? '');
+    $company = trim($data['company'] ?? '');
+    $productName = trim($data['product_name'] ?? '');
+    $productId = isset($data['product_id']) ? intval($data['product_id']) : 0;
+    $quantity = trim($data['quantity'] ?? '');
+    $message = trim($data['message'] ?? '');
     
-    // Validate required fields
     if (empty($name) || empty($email) || empty($phone) || empty($productName)) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Required fields are missing']);
+        exit();
+    }
+
+    if (!tileandturf_validate_email($email)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid email address']);
         exit();
     }
     
@@ -53,10 +53,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     )";
     $conn->query($createTableSql);
     
-    $sql = "INSERT INTO quote_requests (name, email, phone, company, product_name, product_id, quantity, message) 
-            VALUES ('$name', '$email', '$phone', " . ($company ? "'$company'" : 'NULL') . ", '$productName', " . ($productId ? $productId : 'NULL') . ", " . ($quantity ? "'$quantity'" : 'NULL') . ", " . ($message ? "'$message'" : 'NULL') . ")";
-    
-    if ($conn->query($sql)) {
+    $companyVal = $company !== '' ? $company : '';
+    $quantityVal = $quantity !== '' ? $quantity : '';
+    $messageVal = $message !== '' ? $message : '';
+
+    if ($productId > 0) {
+        $insertOk = tileandturf_db_execute(
+            $conn,
+            'INSERT INTO quote_requests (name, email, phone, company, product_name, product_id, quantity, message)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'sssssis',
+            $name,
+            $email,
+            $phone,
+            $companyVal,
+            $productName,
+            $productId,
+            $quantityVal,
+            $messageVal
+        );
+    } else {
+        $insertOk = tileandturf_db_execute(
+            $conn,
+            'INSERT INTO quote_requests (name, email, phone, company, product_name, quantity, message)
+             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'sssssss',
+            $name,
+            $email,
+            $phone,
+            $companyVal,
+            $productName,
+            $quantityVal,
+            $messageVal
+        );
+    }
+
+    if ($insertOk !== false) {
         // Send email to info@tileandturf.com
         $to = 'info@tileandturf.com';
         $subject = 'New Quote Request: ' . $productName;

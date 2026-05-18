@@ -1,10 +1,14 @@
 <?php
 require_once '../config.php';
 
-header('Content-Type: application/json');
+tileandturf_require_admin_for_write();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $sql = "SELECT * FROM menu_items ORDER BY order_index ASC";
+    if (tileandturf_admin_session_valid()) {
+        $sql = "SELECT * FROM menu_items ORDER BY order_index ASC";
+    } else {
+        $sql = "SELECT * FROM menu_items WHERE status = 'active' ORDER BY order_index ASC";
+    }
     $result = $conn->query($sql);
     $menuItems = [];
     while ($row = $result->fetch_assoc()) {

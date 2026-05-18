@@ -11,7 +11,8 @@ const CategoryManagement = () => {
     description: '',
     datasheet_pdf: '',
     brochure_pdf: '',
-    parent_id: ''
+    parent_id: '',
+    discount_percent: ''
   })
   const [uploadingDatasheet, setUploadingDatasheet] = useState(false)
   const [uploadingBrochure, setUploadingBrochure] = useState(false)
@@ -67,7 +68,10 @@ const CategoryManagement = () => {
         ...categoryForm,
         slug: categoryForm.slug || categoryForm.name.toLowerCase().replace(/\s+/g, '-'),
         parent_id: categoryForm.parent_id ? parseInt(categoryForm.parent_id) : null,
-        // Ensure empty strings are sent as empty strings, not null (API will convert to NULL)
+        discount_percent:
+          categoryForm.discount_percent === '' || categoryForm.discount_percent == null
+            ? ''
+            : Math.min(100, Math.max(0, parseFloat(categoryForm.discount_percent) || 0)),
         datasheet_pdf: categoryForm.datasheet_pdf || '',
         brochure_pdf: categoryForm.brochure_pdf || ''
       }
@@ -96,7 +100,8 @@ const CategoryManagement = () => {
         description: '',
         datasheet_pdf: '',
         brochure_pdf: '',
-        parent_id: ''
+        parent_id: '',
+        discount_percent: ''
       })
       fetchCategories()
     } catch (error) {
@@ -114,7 +119,11 @@ const CategoryManagement = () => {
       description: category.description || '',
       datasheet_pdf: category.datasheet_pdf || '',
       brochure_pdf: category.brochure_pdf || '',
-      parent_id: category.parent_id || ''
+      parent_id: category.parent_id || '',
+      discount_percent:
+        category.discount_percent != null && category.discount_percent !== ''
+          ? String(category.discount_percent)
+          : ''
     })
   }
 
@@ -182,6 +191,11 @@ const CategoryManagement = () => {
                   Brochure
                 </span>
               )}
+              {parseFloat(category.discount_percent) > 0 && (
+                <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-semibold">
+                  {parseFloat(category.discount_percent)}% indirim
+                </span>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -232,7 +246,8 @@ const CategoryManagement = () => {
               description: '',
               datasheet_pdf: '',
               brochure_pdf: '',
-              parent_id: ''
+              parent_id: '',
+              discount_percent: ''
             })
           }}
           className="bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors"
@@ -297,6 +312,26 @@ const CategoryManagement = () => {
                   className="w-full border border-gray-300 rounded-lg px-4 py-2"
                   rows="3"
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Kategori indirimi (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={categoryForm.discount_percent}
+                  onChange={(e) =>
+                    setCategoryForm({ ...categoryForm, discount_percent: e.target.value })
+                  }
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  placeholder="Örn. 20 — boş = indirim yok"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Bu kategorideki tüm ürün fiyatlarına uygulanır (ürün kartı, detay, sepet).
+                </p>
               </div>
             </div>
 
@@ -431,7 +466,8 @@ const CategoryManagement = () => {
                     description: '',
                     datasheet_pdf: '',
                     brochure_pdf: '',
-                    parent_id: ''
+                    parent_id: '',
+                    discount_percent: ''
                   })
                 }}
                 className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-2 rounded-lg font-semibold transition-colors"

@@ -1,6 +1,7 @@
 <?php
 require_once 'config.php';
 require_once __DIR__ . '/media-helpers.php';
+require_once __DIR__ . '/category-helpers.php';
 
 header('Content-Type: application/json');
 
@@ -30,18 +31,6 @@ try {
         if ($search) {
             // Search products by name or SKU
             $searchTerm = '%' . $search . '%';
-            // Check if category PDF columns exist
-            $checkCatColumns = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                               WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                               AND TABLE_NAME = 'categories' 
-                               AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf')";
-            $catColResult = $conn->query($checkCatColumns);
-            $hasCatPDFColumns = false;
-            if ($catColResult) {
-                $catColRow = $catColResult->fetch_assoc();
-                $hasCatPDFColumns = $catColRow['count'] >= 2;
-            }
-            
             // Build WHERE clause
             $whereConditions = ["p.status = 'active'"];
             if (!$admin && $hasIsHiddenField) {
@@ -49,38 +38,18 @@ try {
             }
             $whereConditions[] = "(p.name LIKE '$searchTerm' OR p.sku LIKE '$searchTerm')";
             $whereClause = "WHERE " . implode(" AND ", $whereConditions);
-            
-            if ($hasCatPDFColumns) {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug, 
-                        c.datasheet_pdf as category_datasheet_pdf, c.brochure_pdf as category_brochure_pdf
+            $catFields = tileandturf_categories_join_fields($conn);
+            $sql = "SELECT p.*, $catFields
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
                         ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
-            } else {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
-                        FROM products p 
-                        LEFT JOIN categories c ON p.category_id = c.id 
-                        $whereClause
-                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
-            }
             if ($limit) {
                 $sql .= " LIMIT $limit";
             }
         } else if ($slug || $id) {
             // Get single product by slug or id
-            // Check if category PDF columns exist
-            $checkCatColumns = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                               WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                               AND TABLE_NAME = 'categories' 
-                               AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf')";
-            $catColResult = $conn->query($checkCatColumns);
-            $hasCatPDFColumns = false;
-            if ($catColResult) {
-                $catColRow = $catColResult->fetch_assoc();
-                $hasCatPDFColumns = $catColRow['count'] >= 2;
-            }
-            
+            $catFields = tileandturf_categories_join_fields($conn);
             // Build WHERE clause: slug takes precedence, fallback to id
             $whereClause = '';
             if ($slug) {
@@ -97,88 +66,36 @@ try {
                 $whereClause = "WHERE " . implode(" AND ", $whereConditions);
             }
             
-            if ($hasCatPDFColumns) {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug, 
-                        c.datasheet_pdf as category_datasheet_pdf, c.brochure_pdf as category_brochure_pdf
+            $sql = "SELECT p.*, $catFields
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause";
-            } else {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
-                        FROM products p 
-                        LEFT JOIN categories c ON p.category_id = c.id 
-                        $whereClause";
-            }
         } else if ($category) {
             // Get products by category
-            // Check if category PDF columns exist
-            $checkCatColumns = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                               WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                               AND TABLE_NAME = 'categories' 
-                               AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf')";
-            $catColResult = $conn->query($checkCatColumns);
-            $hasCatPDFColumns = false;
-            if ($catColResult) {
-                $catColRow = $catColResult->fetch_assoc();
-                $hasCatPDFColumns = $catColRow['count'] >= 2;
-            }
-            
-            if ($hasCatPDFColumns) {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug, 
-                        c.datasheet_pdf as category_datasheet_pdf, c.brochure_pdf as category_brochure_pdf
+            $catFields = tileandturf_categories_join_fields($conn);
+            $sql = "SELECT p.*, $catFields
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         WHERE c.slug = '$category' AND p.status = 'active'";
-                if (!$admin && $hasIsHiddenField) {
-                    $sql .= " AND (p.is_hidden = 0 OR p.is_hidden IS NULL)";
-                }
-                $sql .= " ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
-            } else {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
-                        FROM products p 
-                        LEFT JOIN categories c ON p.category_id = c.id 
-                        WHERE c.slug = '$category' AND p.status = 'active'";
-                if (!$admin && $hasIsHiddenField) {
-                    $sql .= " AND (p.is_hidden = 0 OR p.is_hidden IS NULL)";
-                }
-                $sql .= " ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
+            if (!$admin && $hasIsHiddenField) {
+                $sql .= " AND (p.is_hidden = 0 OR p.is_hidden IS NULL)";
             }
+            $sql .= " ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
             if ($limit) {
                 $sql .= " LIMIT $limit";
             }
         } else {
             // Get all products
-            // Check if category PDF columns exist
-            $checkCatColumns = "SELECT COUNT(*) as count FROM information_schema.COLUMNS 
-                               WHERE TABLE_SCHEMA = '" . DB_NAME . "' 
-                               AND TABLE_NAME = 'categories' 
-                               AND COLUMN_NAME IN ('datasheet_pdf', 'brochure_pdf')";
-            $catColResult = $conn->query($checkCatColumns);
-            $hasCatPDFColumns = false;
-            if ($catColResult) {
-                $catColRow = $catColResult->fetch_assoc();
-                $hasCatPDFColumns = $catColRow['count'] >= 2;
-            }
-            
+            $catFields = tileandturf_categories_join_fields($conn);
             $whereClause = $admin ? '' : "WHERE p.status = 'active'";
             if (!$admin && $hasIsHiddenField) {
                 $whereClause .= " AND (p.is_hidden = 0 OR p.is_hidden IS NULL)";
             }
-            
-            if ($hasCatPDFColumns) {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug, 
-                        c.datasheet_pdf as category_datasheet_pdf, c.brochure_pdf as category_brochure_pdf
+            $sql = "SELECT p.*, $catFields
                         FROM products p 
                         LEFT JOIN categories c ON p.category_id = c.id 
                         $whereClause
                         ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
-            } else {
-                $sql = "SELECT p.*, c.name as category_name, c.slug as category_slug 
-                        FROM products p 
-                        LEFT JOIN categories c ON p.category_id = c.id 
-                        $whereClause
-                        ORDER BY COALESCE(p.order_index, 999999) ASC, p.created_at DESC";
-            }
             if ($limit) {
                 $sql .= " LIMIT $limit";
             }
@@ -204,6 +121,7 @@ try {
             echo json_encode(['error' => 'Query failed: ' . $conn->error]);
         }
     } else if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        tileandturf_require_admin();
         $data = json_decode(file_get_contents('php://input'), true);
         
         if (!$data) {
@@ -469,6 +387,7 @@ try {
             echo json_encode(['success' => false, 'error' => 'Database error: ' . $conn->error, 'sql' => $sql]);
         }
     } else if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+        tileandturf_require_admin();
         // Update product
         $data = json_decode(file_get_contents('php://input'), true);
         
@@ -755,6 +674,7 @@ try {
             echo json_encode(['success' => false, 'error' => 'Database error: ' . $conn->error]);
         }
     } else if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        tileandturf_require_admin();
         $id = intval($_GET['id'] ?? 0);
         
         if (!$id) {

@@ -1,10 +1,9 @@
 <?php
 require_once 'config.php';
 
+tileandturf_require_admin();
+
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST');
-header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -12,66 +11,29 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-// Debug: Log all received data
-error_log('Upload PDF - POST data: ' . print_r($_POST, true));
-error_log('Upload PDF - FILES data: ' . print_r($_FILES, true));
-
 if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
-    $errorMsg = 'No file uploaded';
-    if (isset($_FILES['file']['error'])) {
-        switch ($_FILES['file']['error']) {
-            case UPLOAD_ERR_INI_SIZE:
-            case UPLOAD_ERR_FORM_SIZE:
-                $errorMsg = 'File size exceeds limit';
-                break;
-            case UPLOAD_ERR_PARTIAL:
-                $errorMsg = 'File upload was incomplete';
-                break;
-            case UPLOAD_ERR_NO_FILE:
-                $errorMsg = 'No file was uploaded';
-                break;
-            case UPLOAD_ERR_NO_TMP_DIR:
-                $errorMsg = 'Missing temporary folder';
-                break;
-            case UPLOAD_ERR_CANT_WRITE:
-                $errorMsg = 'Failed to write file to disk';
-                break;
-            case UPLOAD_ERR_EXTENSION:
-                $errorMsg = 'File upload stopped by extension';
-                break;
-        }
-    }
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => $errorMsg]);
+    echo json_encode(['success' => false, 'error' => 'No file uploaded']);
     exit();
 }
 
 $file = $_FILES['file'];
+$validation = tileandturf_validate_uploaded_file(
+    $file,
+    ['application/pdf'],
+    ['pdf'],
+    10 * 1024 * 1024
+);
 
-// Check file type
-$allowedTypes = ['application/pdf'];
-$fileType = $file['type'];
-
-if (!in_array($fileType, $allowedTypes)) {
+if (!$validation['ok']) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Only PDF files are allowed']);
+    echo json_encode(['success' => false, 'error' => $validation['error']]);
     exit();
 }
 
-// Check file size (max 10MB)
-$maxSize = 10 * 1024 * 1024; // 10MB
-if ($file['size'] > $maxSize) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'File size exceeds 10MB limit']);
-    exit();
-}
+$filename = uniqid('pdf_', true) . '.pdf';
+$uploadDir = __DIR__ . '/uploads/pdfs/';
 
-// Generate unique filename
-$extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-$filename = uniqid('pdf_', true) . '.' . $extension;
-$uploadDir = '../uploads/pdfs/';
-
-// Create upload directory if it doesn't exist
 if (!file_exists($uploadDir)) {
     mkdir($uploadDir, 0755, true);
 }
@@ -87,4 +49,5 @@ if (move_uploaded_file($file['tmp_name'], $targetPath)) {
 }
 
 $conn->close();
+
 ?>

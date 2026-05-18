@@ -84,7 +84,8 @@ const Checkout = () => {
       
       if (response.data.success) {
         const orderId = response.data.orderId
-        const orderNumber = response.data.orderNumber
+        const orderNumber = response.data.orderNumber || `ORD-${orderId}`
+        const confirmationToken = response.data.confirmationToken || ''
         
         // Set ref to prevent redirect to /cart BEFORE navigation
         orderPlacedRef.current = true
@@ -92,11 +93,23 @@ const Checkout = () => {
         // Store order info in sessionStorage so OrderConfirmation can clear cart
         sessionStorage.setItem('orderPlaced', 'true')
         sessionStorage.setItem('orderId', orderId.toString())
-        sessionStorage.setItem('orderNumber', orderNumber || `ORD-${orderId}`)
+        sessionStorage.setItem('orderNumber', orderNumber)
+        sessionStorage.setItem('orderConfirmationToken', confirmationToken)
+        sessionStorage.setItem(
+          'orderSummary',
+          JSON.stringify({
+            id: orderId,
+            order_number: orderNumber,
+            total: response.data.total ?? getCartTotal(),
+            email: formData.email,
+            status: 'pending',
+          })
+        )
         
-        // Navigate immediately - don't wait for anything
-        // Use window.location for immediate navigation to prevent any interference
-        window.location.href = `/order-confirmation/${orderId}`
+        const tokenQuery = confirmationToken
+          ? `?token=${encodeURIComponent(confirmationToken)}`
+          : ''
+        window.location.href = `/order-confirmation/${orderId}${tokenQuery}`
       } else {
         alert('Error placing order: ' + (response.data.error || 'Please try again.'))
       }

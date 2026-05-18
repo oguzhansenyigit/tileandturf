@@ -1,0 +1,19 @@
+<?php
+/**
+ * Copy to config.local.php on the server (never commit config.local.php).
+ */
+
+define('TILEANDTURF_DB_HOST', 'localhost');
+define('TILEANDTURF_DB_USER', 'your_db_user');
+define('TILEANDTURF_DB_PASS', 'your_db_password');
+define('TILEANDTURF_DB_NAME', 'your_db_name');
+
+// Use either a plain password OR a bcrypt hash (preferred):
+// define('TILEANDTURF_ADMIN_PASSWORD', 'change-me-strong-password');
+// define('TILEANDTURF_ADMIN_PASSWORD_HASH', '$2y$10$....');
+
+define('TILEANDTURF_ALLOWED_ORIGINS', 'https://tileandturf.com,http://localhost:3000');
+
+// Optional: copy this file to config.legacy.php if you cannot use config.local.php on the server.
+
+?>

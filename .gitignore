@@ -31,6 +31,8 @@ yarn-error.log*
 # PHP
 *.log
 /vendor/
+api/config.local.php
+api/config.legacy.php
 
 # Local API backup / uploads (do not publish)
 api (4)/

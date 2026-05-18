@@ -1,0 +1,6 @@
+# Block one-off migration / debug scripts from public web access.
+<IfModule mod_authz_core.c>
+  <FilesMatch "^(add_|seed_|init_|debug).*\.php$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
