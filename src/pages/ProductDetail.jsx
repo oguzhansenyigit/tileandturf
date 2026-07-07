@@ -87,7 +87,6 @@ const ProductDetail = () => {
 
   useEffect(() => {
     fetchProduct()
-    fetchProductDetailPromo()
   }, [slug])
 
   const primaryColorVariation = useMemo(
@@ -382,7 +381,7 @@ const ProductDetail = () => {
         }
       }
       
-      // Set loading to false after all data is loaded
+      await fetchProductDetailPromo()
       setLoading(false)
     } catch (error) {
       console.error('Error fetching product:', error)
@@ -662,8 +661,23 @@ const ProductDetail = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12 text-center">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div>
+            <div className="aspect-[4/3] w-full bg-gray-100 rounded-lg animate-pulse mb-6" />
+            <div className="grid grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-20 bg-gray-100 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="h-10 bg-gray-100 rounded animate-pulse w-3/4" />
+            <div className="h-6 bg-gray-100 rounded animate-pulse w-1/3" />
+            <div className="h-24 bg-gray-100 rounded animate-pulse" />
+            <div className="h-12 bg-gray-100 rounded animate-pulse w-full" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -715,17 +729,21 @@ const ProductDetail = () => {
             </div>
           ) : (
             <div className="mb-6">
-              <img
-                key={productImageSrc(selectedImage || product.image)}
-                src={productImageSrc(selectedImage || product.image)}
-                alt={product.name}
-                className="w-full h-auto rounded-lg shadow-lg"
-                decoding="async"
-                fetchPriority="high"
-                onError={(e) => {
-                  e.currentTarget.src = PLACEHOLDER_IMAGE
-                }}
-              />
+              <div className="aspect-[4/3] w-full overflow-hidden rounded-lg shadow-lg bg-gray-50">
+                <img
+                  key={productImageSrc(selectedImage || product.image)}
+                  src={productImageSrc(selectedImage || product.image)}
+                  alt={product.name}
+                  width={800}
+                  height={600}
+                  className="w-full h-full object-contain"
+                  decoding="async"
+                  fetchPriority="high"
+                  onError={(e) => {
+                    e.currentTarget.src = PLACEHOLDER_IMAGE
+                  }}
+                />
+              </div>
               {/* Product Detail Promo Banner - Mobile Only */}
               {productDetailPromo && (
                 <div className="lg:hidden mt-0 bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-200 py-3 px-4">
@@ -787,7 +805,11 @@ const ProductDetail = () => {
                     <img
                       src={product.image}
                       alt={product.name}
+                      width={80}
+                      height={80}
                       className="w-full h-20 object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </button>
                 )}
@@ -805,7 +827,11 @@ const ProductDetail = () => {
                     <img
                       src={img}
                       alt={`${product.name} - Gallery ${index + 1}`}
+                      width={80}
+                      height={80}
                       className="w-full h-20 object-cover"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </button>
                 ))}

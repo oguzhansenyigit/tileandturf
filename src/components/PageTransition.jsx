@@ -1,74 +1,73 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import logoImage from '/logo.svg'
 
+const OVERLAY_HOLD_MS = 140
+const OVERLAY_FADE_MS = 320
+
 const PageTransition = ({ children }) => {
   const location = useLocation()
-  const [isLoading, setIsLoading] = useState(false)
-  const [displayChildren, setDisplayChildren] = useState(children)
+  const isFirstRender = useRef(true)
+  const [overlayActive, setOverlayActive] = useState(false)
+  const [overlayOpaque, setOverlayOpaque] = useState(false)
 
   useEffect(() => {
-    setIsLoading(true)
-    
-    // Show loading screen for a brief moment
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1000) // Delay for smooth transition
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
 
-    return () => clearTimeout(timer)
+    window.scrollTo(0, 0)
+    setOverlayActive(true)
+    setOverlayOpaque(true)
+
+    const fadeTimer = setTimeout(() => {
+      setOverlayOpaque(false)
+    }, OVERLAY_HOLD_MS)
+
+    const removeTimer = setTimeout(() => {
+      setOverlayActive(false)
+    }, OVERLAY_HOLD_MS + OVERLAY_FADE_MS)
+
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(removeTimer)
+    }
   }, [location.pathname])
 
-  useEffect(() => {
-    if (!isLoading) {
-      setDisplayChildren(children)
-    }
-  }, [children, isLoading])
+  return (
+    <>
+      <div key={location.pathname} className="page-transition-content">
+        {children}
+      </div>
 
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 z-[9999] bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center justify-center">
-          {/* Logo with animation */}
-          <div className="relative mb-4">
-            <div className="absolute inset-0 bg-green-100 rounded-full blur-2xl opacity-50 animate-pulse"></div>
-            <img 
-              src={logoImage} 
-              alt="Tile and Turf" 
-              className="relative z-10 h-20 w-auto animate-pulse"
-              style={{
-                animation: 'logoPulse 1.5s ease-in-out infinite'
-              }}
+      {overlayActive && (
+        <div
+          className="page-transition-overlay"
+          style={{ opacity: overlayOpaque ? 1 : 0 }}
+          aria-hidden="true"
+        >
+          <div className="flex flex-col items-center">
+            <img
+              src={logoImage}
+              alt=""
+              width={80}
+              height={80}
+              className="h-16 w-auto"
+              decoding="async"
             />
-          </div>
-          
-          {/* Loading text */}
-          <div className="text-gray-600 text-sm font-medium mt-4">
-            Loading...
-          </div>
-          
-          {/* Progress bar */}
-          <div className="w-48 h-1 bg-gray-200 rounded-full mt-4 overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full"
-              style={{
-                animation: 'loadingProgress 1.5s ease-in-out infinite'
-              }}
-            ></div>
+            <p className="text-gray-600 text-sm font-medium mt-4">Loading...</p>
+            <div className="w-40 h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
+              <div
+                className="page-transition-progress h-full bg-primary rounded-full origin-left"
+                style={{ transform: overlayOpaque ? 'scaleX(1)' : 'scaleX(0)' }}
+              />
+            </div>
           </div>
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <div 
-      key={location.pathname}
-      className="animate-fadeIn"
-    >
-      {displayChildren}
-    </div>
+      )}
+    </>
   )
 }
 
 export default PageTransition
-

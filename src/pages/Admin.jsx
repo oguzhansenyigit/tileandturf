@@ -12,7 +12,10 @@ import SocialMediaManagement from '../components/admin/SocialMediaManagement'
 import GoogleMerchantManagement from '../components/admin/GoogleMerchantManagement'
 import VariationsManagement from '../components/admin/VariationsManagement'
 import SEOManagement from '../components/admin/SEOManagement'
+import AISeoAssistant from '../components/admin/AISeoAssistant'
 import CategoryManagement from '../components/admin/CategoryManagement'
+import PriceSync from '../components/admin/PriceSync'
+import TitleNormalizer from '../components/admin/TitleNormalizer'
 
 const Admin = () => {
   const [password, setPassword] = useState('')
@@ -125,6 +128,9 @@ const Admin = () => {
     { id: 'social', label: 'Social Media', icon: '📱' },
     { id: 'google', label: 'Google Merchant', icon: '🛍️' },
     { id: 'seo', label: 'SEO Management', icon: '🔍' },
+    { id: 'ai-seo', label: 'AI SEO Assistant', icon: '🤖' },
+    { id: 'price-sync', label: 'Price Sync', icon: '💲' },
+    { id: 'title-fixer', label: 'Title Fixer', icon: '🔤' },
   ]
 
   return (
@@ -187,6 +193,9 @@ const Admin = () => {
           {activeSection === 'social' && <SocialMediaManagement />}
           {activeSection === 'google' && <GoogleMerchantManagement />}
           {activeSection === 'seo' && <SEOManagement />}
+          {activeSection === 'ai-seo' && <AISeoAssistant />}
+          {activeSection === 'price-sync' && <PriceSync />}
+          {activeSection === 'title-fixer' && <TitleNormalizer />}
         </main>
       </div>
     </div>

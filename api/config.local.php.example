@@ -14,6 +14,15 @@ define('TILEANDTURF_DB_NAME', 'your_db_name');
 
 define('TILEANDTURF_ALLOWED_ORIGINS', 'https://tileandturf.com,http://localhost:3000');
 
+// Optional mail settings (defaults use tileandturf.com):
+// define('TILEANDTURF_MAIL_FROM', 'noreply@tileandturf.com');
+// define('TILEANDTURF_MAIL_FROM_NAME', 'Tile and Turf');
+// define('TILEANDTURF_MAIL_REPLY_TO', 'info@tileandturf.com');
+// define('TILEANDTURF_ORDER_NOTIFY_EMAILS', 'info@tileandturf.com,anil@pedexon.com,oguzhansenyigit14@gmail.com');
+
+// Optional: OpenAI API key for AI SEO Assistant (admin → AI SEO Assistant)
+// define('TILEANDTURF_OPENAI_API_KEY', 'sk-...');
+
 // Optional: copy this file to config.legacy.php if you cannot use config.local.php on the server.
 
 ?>

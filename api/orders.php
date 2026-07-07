@@ -232,14 +232,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </body>
 </html>';
         
-        $customerHeaders = "From: Tile and Turf <noreply@tileandturf.oguzhansenyigit.com>\r\n";
-        $customerHeaders .= "Reply-To: info@tileandturf.com\r\n";
+        $customerHeaders = tileandturf_mail_from_header(true);
+        $customerHeaders .= 'Reply-To: ' . tileandturf_mail_reply_to() . "\r\n";
         $customerHeaders .= "MIME-Version: 1.0\r\n";
         $customerHeaders .= "Content-Type: text/html; charset=UTF-8\r\n";
         
         @mail($email, $customerSubject, $customerBody, $customerHeaders);
         
-        // Email to admin (info@tileandturf.com and anil@pedexon.com)
+        // Email to configured admin notification addresses
         $adminSubject = "New Order Received - $orderNumber";
         $adminBody = "New order received:\n\n";
         $adminBody .= "ORDER NUMBER: $orderNumber\n";
@@ -260,13 +260,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $adminBody .= "PAYMENT METHOD: $paymentMethod\n\n";
         $adminBody .= "Please contact the customer to confirm the order and arrange payment.\n";
         
-        $adminHeaders = "From: noreply@tileandturf.oguzhansenyigit.com\r\n";
+        $adminHeaders = tileandturf_mail_from_header(false);
         $adminHeaders .= "Reply-To: $email\r\n";
         $adminHeaders .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        
-        // Send to both admin emails
-        @mail('info@tileandturf.com', $adminSubject, $adminBody, $adminHeaders);
-        @mail('anil@pedexon.com', $adminSubject, $adminBody, $adminHeaders);
+
+        foreach (tileandturf_order_notify_emails() as $notifyEmail) {
+            @mail($notifyEmail, $adminSubject, $adminBody, $adminHeaders);
+        }
         
         $confirmationToken = tileandturf_order_confirmation_token($orderId, $orderNumber);
 

@@ -25,6 +25,19 @@ if (!defined('DB_NAME')) {
     define('DB_NAME', defined('TILEANDTURF_DB_NAME') ? TILEANDTURF_DB_NAME : (getenv('DB_NAME') ?: ''));
 }
 
+if (!defined('TILEANDTURF_MAIL_FROM')) {
+    define('TILEANDTURF_MAIL_FROM', 'noreply@tileandturf.com');
+}
+if (!defined('TILEANDTURF_MAIL_FROM_NAME')) {
+    define('TILEANDTURF_MAIL_FROM_NAME', 'Tile and Turf');
+}
+if (!defined('TILEANDTURF_MAIL_REPLY_TO')) {
+    define('TILEANDTURF_MAIL_REPLY_TO', 'info@tileandturf.com');
+}
+if (!defined('TILEANDTURF_ORDER_NOTIFY_EMAILS')) {
+    define('TILEANDTURF_ORDER_NOTIFY_EMAILS', 'info@tileandturf.com,anil@pedexon.com,oguzhansenyigit14@gmail.com');
+}
+
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/db-helpers.php';
 

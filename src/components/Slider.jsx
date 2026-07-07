@@ -6,9 +6,30 @@ import slider1 from '/slider.webp'
 import slider2 from '/slider5.webp'
 import { resolveSliderImage } from '../utils/sliderImage'
 
+const DEFAULT_SLIDES = [
+  {
+    image: slider1,
+    title: 'PORCELAIN PAVER',
+    description:
+      'Premium quality porcelain pavers that combine exceptional durability with timeless elegance.',
+    buttonText: 'Shop Now',
+    link: '/products/concrete-pavers-system',
+    positionX: 'center',
+    positionY: 'top',
+  },
+  {
+    image: slider2,
+    title: 'IPE TILE SYSTEM',
+    description: 'Discover the unmatched beauty and strength of IPE wood tile systems.',
+    buttonText: 'Shop Now',
+    link: '/products/ipe-tile-systems',
+    positionX: 'center',
+    positionY: 'top',
+  },
+]
+
 const HeroSlider = () => {
-  const [slides, setSlides] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [slides, setSlides] = useState(DEFAULT_SLIDES)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -29,94 +50,28 @@ const HeroSlider = () => {
       const response = await axios.get('/api/admin/sliders.php')
       if (Array.isArray(response.data) && response.data.length > 0) {
         const activeSliders = response.data
-          .filter(slider => slider.status === 'active')
+          .filter((slider) => slider.status === 'active')
           .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-        
+
         if (activeSliders.length > 0) {
-          setSlides(activeSliders.map(slider => ({
-            image: resolveSliderImage(slider.image),
-            title: slider.title,
-            description: slider.description || '',
-            buttonText: slider.button_text || 'Shop Now',
-            link: slider.button_link || '/products',
-            positionX: slider.image_position_x || 'center',
-            positionY: slider.image_position_y || 'center'
-          })))
-        } else {
-          // Fallback to default slides
-          setSlides([
-            {
-              image: slider1,
-              title: 'PORCELAIN PAVER',
-              description: 'Premium quality porcelain pavers that combine exceptional durability with timeless elegance.',
-              buttonText: 'Shop Now',
-              link: '/products/concrete-pavers-system',
-              positionX: 'center',
-              positionY: 'top'
-            },
-            {
-              image: slider2,
-              title: 'IPE TILE SYSTEM',
-              description: 'Discover the unmatched beauty and strength of IPE wood tile systems.',
-              buttonText: 'Shop Now',
-              link: '/products/ipe-tile-systems',
-              positionX: 'center',
-              positionY: 'top'
-            }
-          ])
+          setSlides(
+            activeSliders.map((slider) => ({
+              image: resolveSliderImage(slider.image),
+              title: slider.title,
+              description: slider.description || '',
+              buttonText: slider.button_text || 'Shop Now',
+              link: slider.button_link || '/products',
+              positionX: slider.image_position_x || 'center',
+              positionY: slider.image_position_y || 'center',
+            }))
+          )
         }
-      } else {
-        // Fallback to default slides
-        setSlides([
-          {
-            image: slider1,
-            title: 'PORCELAIN PAVER',
-            description: 'Premium quality porcelain pavers that combine exceptional durability with timeless elegance.',
-            buttonText: 'Shop Now',
-            link: '/products/concrete-pavers-system',
-            positionX: 'center',
-            positionY: 'top'
-          },
-          {
-            image: slider2,
-            title: 'IPE TILE SYSTEM',
-            description: 'Discover the unmatched beauty and strength of IPE wood tile systems.',
-            buttonText: 'Shop Now',
-            link: '/products/ipe-tile-systems',
-            positionX: 'center',
-            positionY: 'top'
-          }
-        ])
       }
     } catch (error) {
       console.error('Error fetching sliders:', error)
-      // Fallback to default slides
-      setSlides([
-        {
-          image: slider1,
-          title: 'PORCELAIN PAVER',
-          description: 'Premium quality porcelain pavers that combine exceptional durability with timeless elegance.',
-          buttonText: 'Shop Now',
-          link: '/products/concrete-pavers-system',
-          positionX: 'center',
-          positionY: 'top'
-        },
-        {
-          image: slider2,
-          title: 'IPE TILE SYSTEM',
-          description: 'Discover the unmatched beauty and strength of IPE wood tile systems.',
-          buttonText: 'Shop Now',
-          link: '/products/ipe-tile-systems',
-          positionX: 'center',
-          positionY: 'top'
-        }
-      ])
-    } finally {
-      setLoading(false)
     }
   }
 
-  // Custom arrow components
   const NextArrow = ({ onClick }) => (
     <button
       onClick={onClick}
@@ -155,42 +110,30 @@ const HeroSlider = () => {
     prevArrow: <PrevArrow />,
   }
 
-  const getBackgroundPosition = (positionX, positionY) => {
+  const getBackgroundPosition = (positionX) => {
     const xMap = { left: 'left', center: 'center', right: 'right' }
     return xMap[positionX] || 'center'
-  }
-
-  if (loading) {
-    return (
-      <div className="relative h-[600px] md:h-[700px] w-full bg-gray-200 animate-pulse"></div>
-    )
-  }
-
-  if (slides.length === 0) {
-    return null
   }
 
   return (
     <div className="relative h-[600px] md:h-[700px] w-full">
       <Slider {...settings}>
         {slides.map((slide, index) => (
-          <div key={index}>
+          <div key={`${slide.title}-${index}`}>
             <div
-              className="relative h-[600px] md:h-[700px] w-full bg-cover bg-no-repeat overflow-hidden"
-              style={{ 
-                backgroundImage: `url(${slide.image})`, 
-                backgroundPositionX: getBackgroundPosition(slide.positionX, slide.positionY),
+              className="relative h-[600px] md:h-[700px] w-full bg-gray-800 bg-cover bg-no-repeat overflow-hidden"
+              style={{
+                backgroundImage: `url(${slide.image})`,
+                backgroundPositionX: getBackgroundPosition(slide.positionX),
                 backgroundPositionY: isMobile ? 'center' : 'calc(50% - 50px)',
-                backgroundSize: 'cover'
+                backgroundSize: 'cover',
               }}
             >
               <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-              
+
               <div className="absolute inset-0 flex items-center justify-center z-10">
                 <div className="text-center text-white px-4 max-w-4xl">
-                  <h2 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-lg">
-                    {slide.title}
-                  </h2>
+                  <h2 className="text-4xl md:text-6xl font-bold mb-6 drop-shadow-lg">{slide.title}</h2>
                   {slide.description && (
                     <p className="text-lg md:text-xl mb-8 drop-shadow-md max-w-2xl mx-auto">
                       {slide.description}
@@ -215,4 +158,3 @@ const HeroSlider = () => {
 }
 
 export default HeroSlider
-

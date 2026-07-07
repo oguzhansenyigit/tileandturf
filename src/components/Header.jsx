@@ -6,13 +6,20 @@ import { useWhatsApp } from '../hooks/useWhatsApp'
 import axios from 'axios'
 import logoImage from '/logo.svg'
 
+const DEFAULT_TOP_BANNER_TEXT =
+  '🌿 Special Offer: Enjoy up to 25% OFF on all eco-friendly decking, tiles, and outdoor materials! Visit Our Shop →'
+
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false)
   const [menuItems, setMenuItems] = useState([])
   const [ourProductsMenu, setOurProductsMenu] = useState(null)
   const [productsSubmenu, setProductsSubmenu] = useState([])
-  const [topBanner, setTopBanner] = useState({ text: '', status: 'active', link: '/products' })
+  const [topBanner, setTopBanner] = useState({
+    text: DEFAULT_TOP_BANNER_TEXT,
+    status: 'active',
+    link: '/products',
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [showSearchResults, setShowSearchResults] = useState(false)
@@ -119,9 +126,9 @@ const Header = () => {
       const response = await axios.get('/api/admin/settings.php')
       if (response.data) {
         setTopBanner({
-          text: response.data.top_banner_text || '🌿 Special Offer: Enjoy up to 25% OFF on all eco-friendly decking, tiles, and outdoor materials! Visit Our Shop →',
+          text: response.data.top_banner_text || DEFAULT_TOP_BANNER_TEXT,
           status: response.data.top_banner_status || 'active',
-          link: response.data.top_banner_link || '/products'
+          link: response.data.top_banner_link || '/products',
         })
       }
     } catch (error) {
@@ -172,12 +179,14 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showSearchResults])
 
+  const bannerVisible = topBanner.status === 'active' && Boolean(topBanner.text)
+
   return (
     <header className="bg-white sticky top-0 z-50 shadow-lg">
       {/* Top Banner - Gradient */}
-      {topBanner.status === 'active' && topBanner.text && (
+      {bannerVisible && (
         <div 
-          className="fixed top-0 left-0 right-0 z-[9999] shadow-lg"
+          className="fixed top-0 left-0 right-0 z-[9999] shadow-lg min-h-[46px]"
           style={{
             textAlign: 'center',
             background: 'linear-gradient(90deg, #43a047, #bdbdbd)',
@@ -203,7 +212,7 @@ const Header = () => {
       )}
 
       {/* Top Bar: Hours (left) - Logo (center) - Social Icons (right) */}
-      <div className="border-b border-gray-200" style={{ marginTop: '46px' }}>
+      <div className="border-b border-gray-200" style={{ marginTop: bannerVisible ? '46px' : 0 }}>
         <div className="container mx-auto px-4 py-3 bg-white">
           <div className="flex items-center justify-between">
             {/* Opening Hours + Pedestal Calculator - Desktop (compact, single row) */}
@@ -241,7 +250,14 @@ const Header = () => {
 
             {/* Logo - Center */}
             <Link to="/" className="flex items-center justify-center flex-1 md:flex-none">
-              <img src={logoImage} alt="Logo" className="h-12 md:h-16 w-auto" />
+              <img
+                src={logoImage}
+                alt="Logo"
+                width={160}
+                height={64}
+                className="h-12 md:h-16 w-auto"
+                decoding="async"
+              />
             </Link>
 
             {/* Desktop Search, Login/Register, Social Icons and Cart - Right */}
@@ -281,7 +297,15 @@ const Header = () => {
                       >
                         <div className="flex items-center space-x-3">
                           {product.image && (
-                            <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              width={48}
+                              height={48}
+                              className="w-12 h-12 object-cover rounded"
+                              loading="lazy"
+                              decoding="async"
+                            />
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold text-gray-800 truncate">{product.name}</p>
@@ -475,7 +499,15 @@ const Header = () => {
                   >
                     <div className="flex items-center space-x-3">
                       {product.image && (
-                        <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded" />
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 object-cover rounded"
+                          loading="lazy"
+                          decoding="async"
+                        />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-800 truncate">{product.name}</p>

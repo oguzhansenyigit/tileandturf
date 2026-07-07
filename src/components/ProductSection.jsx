@@ -185,8 +185,17 @@ const ProductSection = ({ category: categoryFilter }) => {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <div key={i} className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="h-64 bg-gray-100 animate-pulse" />
+                <div className="p-4 space-y-3">
+                  <div className="h-5 bg-gray-100 rounded animate-pulse w-4/5" />
+                  <div className="h-4 bg-gray-100 rounded animate-pulse w-full" />
+                  <div className="h-6 bg-gray-100 rounded animate-pulse w-1/3" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

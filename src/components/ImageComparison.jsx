@@ -98,7 +98,10 @@ const ImageComparison = ({ beforeImage, afterImage, alt = 'Comparison' }) => {
         <img
           src={beforeImage}
           alt={`${alt} - Before`}
+          width={800}
+          height={500}
           className="w-full h-full object-cover"
+          decoding="async"
         />
       </div>
 
@@ -110,7 +113,10 @@ const ImageComparison = ({ beforeImage, afterImage, alt = 'Comparison' }) => {
         <img
           src={afterImage}
           alt={`${alt} - After`}
+          width={800}
+          height={500}
           className="w-full h-full object-cover"
+          decoding="async"
         />
       </div>
 

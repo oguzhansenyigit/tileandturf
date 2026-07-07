@@ -206,8 +206,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </body>
 </html>';
     
-    $headers = "From: Tile and Turf <noreply@tileandturf.oguzhansenyigit.com>\r\n";
-    $headers .= "Reply-To: info@tileandturf.com\r\n";
+    $headers = tileandturf_mail_from_header(true);
+    $headers .= 'Reply-To: ' . tileandturf_mail_reply_to() . "\r\n";
     $headers .= "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     

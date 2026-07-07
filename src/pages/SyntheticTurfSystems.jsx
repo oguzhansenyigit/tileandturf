@@ -61,9 +61,9 @@ const SyntheticTurfSystems = () => {
                 Watch our detailed installation video demonstrating the professional installation process for Synthetic Turf Systems
               </p>
             </div>
-            <div className="bg-gray-900 rounded-xl shadow-2xl overflow-hidden">
+            <div className="bg-gray-900 rounded-xl shadow-2xl overflow-hidden aspect-video">
               <video
-                className="w-full h-auto"
+                className="w-full h-full object-cover"
                 controls
                 poster="/syntethic-turf after 1.webp"
               >

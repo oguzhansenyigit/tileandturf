@@ -15,6 +15,9 @@
   # sitemap.xml - always generate from database (active products + categories)
   RewriteRule ^sitemap\.xml$ api/sitemap.php [L,QSA,NC]
 
+  # llms.txt - brand/company brief for AI assistants (llmstxt.org convention)
+  RewriteRule ^llms\.txt$ api/llms.php [L,QSA,NC]
+
   # Product images and uploads under /api/uploads/
   RewriteRule ^api/uploads/ - [L]
   

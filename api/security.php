@@ -53,6 +53,38 @@ function tileandturf_validate_email($email) {
     return is_string($email) && filter_var($email, FILTER_VALIDATE_EMAIL);
 }
 
+function tileandturf_mail_from_email() {
+    return defined('TILEANDTURF_MAIL_FROM') ? TILEANDTURF_MAIL_FROM : 'noreply@tileandturf.com';
+}
+
+function tileandturf_mail_from_name() {
+    return defined('TILEANDTURF_MAIL_FROM_NAME') ? TILEANDTURF_MAIL_FROM_NAME : 'Tile and Turf';
+}
+
+function tileandturf_mail_reply_to() {
+    return defined('TILEANDTURF_MAIL_REPLY_TO') ? TILEANDTURF_MAIL_REPLY_TO : 'info@tileandturf.com';
+}
+
+function tileandturf_mail_from_header($withDisplayName = true) {
+    $email = tileandturf_mail_from_email();
+    if ($withDisplayName) {
+        return 'From: ' . tileandturf_mail_from_name() . ' <' . $email . ">\r\n";
+    }
+    return 'From: ' . $email . "\r\n";
+}
+
+function tileandturf_order_notify_emails() {
+    $raw = defined('TILEANDTURF_ORDER_NOTIFY_EMAILS') ? TILEANDTURF_ORDER_NOTIFY_EMAILS : 'info@tileandturf.com';
+    $emails = [];
+    foreach (explode(',', $raw) as $entry) {
+        $entry = trim($entry);
+        if ($entry !== '' && tileandturf_validate_email($entry)) {
+            $emails[] = $entry;
+        }
+    }
+    return $emails;
+}
+
 function tileandturf_admin_configured() {
     return (defined('TILEANDTURF_ADMIN_PASSWORD_HASH') && TILEANDTURF_ADMIN_PASSWORD_HASH !== '')
         || (defined('TILEANDTURF_ADMIN_PASSWORD') && TILEANDTURF_ADMIN_PASSWORD !== '');

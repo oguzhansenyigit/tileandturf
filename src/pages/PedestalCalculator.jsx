@@ -1,6 +1,39 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+const MAX_PEDESTAL_SPACING_IN = 24
+const PEDESTAL_WASTE_FACTOR = 1.35
+
+/** Pedestal grid cell size (inches) — max 24" between pedestals; long tiles use short side when long > 24". */
+const getPedestalApplicationDimensions = (widthIn, heightIn) => {
+  const w = Number(widthIn)
+  const h = Number(heightIn)
+  if (!w || !h || w <= 0 || h <= 0) return null
+
+  const short = Math.min(w, h)
+  const long = Math.max(w, h)
+
+  if (long > MAX_PEDESTAL_SPACING_IN) {
+    const spacing = Math.min(short, MAX_PEDESTAL_SPACING_IN)
+    return { width: spacing, height: spacing }
+  }
+
+  return { width: w, height: h }
+}
+
+const getPedestalApplicationAreaSqft = (widthIn, heightIn) => {
+  const dims = getPedestalApplicationDimensions(widthIn, heightIn)
+  if (!dims) return 0
+  return (dims.width * dims.height) / 144
+}
+
+const calculatePedestalCount = (totalAreaSqft, widthIn, heightIn) => {
+  const area = Number(totalAreaSqft)
+  const applicationArea = getPedestalApplicationAreaSqft(widthIn, heightIn)
+  if (!area || area <= 0 || !applicationArea || applicationArea <= 0) return null
+  return Math.ceil((area / applicationArea) * PEDESTAL_WASTE_FACTOR)
+}
+
 const PedestalCalculator = () => {
   const [totalArea, setTotalArea] = useState('')
   const [tileSize, setTileSize] = useState('24x24')
@@ -15,25 +48,9 @@ const PedestalCalculator = () => {
     { label: '12" × 12"', value: '12x12', width: 12, height: 12, sqft: 1 },
     { label: '12" × 24"', value: '12x24', width: 12, height: 24, sqft: 2 },
     { label: '24" × 48"', value: '24x48', width: 24, height: 48, sqft: 8 },
+    { label: '18" × 36"', value: '18x36', width: 18, height: 36, sqft: 4.5 },
     { label: 'Custom Size', value: 'custom' }
   ]
-
-  const getPedestalCountForTile = (width, height) => {
-    const maxDim = Math.max(width, height)
-
-    if (maxDim <= 24) {
-      return 4
-    }
-
-    const segments = maxDim / 24
-    const additionalPedestals = Math.floor(segments - 1) * 2
-
-    if (segments > 1 && segments < 2) {
-      return 4 + 1
-    }
-
-    return 4 + additionalPedestals
-  }
 
   const getTileDimensions = () => {
     if (useCustomSize) {
@@ -67,20 +84,22 @@ const PedestalCalculator = () => {
       return null
     }
 
+    const applicationDims = getPedestalApplicationDimensions(dimensions.width, dimensions.height)
+    const applicationArea = getPedestalApplicationAreaSqft(dimensions.width, dimensions.height)
+    const pedestalCount = calculatePedestalCount(area, dimensions.width, dimensions.height)
     const exactTileCount = area / tileArea
     const tileCount = Math.ceil(exactTileCount)
-
-    const pedestalsPerTile = getPedestalCountForTile(dimensions.width, dimensions.height)
-
-    const pedestalCount = Math.ceil(exactTileCount * pedestalsPerTile)
+    const rawRatio = (area / applicationArea) * PEDESTAL_WASTE_FACTOR
 
     return {
       totalArea: area,
-      pedestalPatternArea: tileArea,
-      tileCount: tileCount,
-      exactTileCount: exactTileCount,
-      pedestalCount: pedestalCount,
-      pedestalsPerTile: pedestalsPerTile
+      tileArea,
+      applicationDims,
+      applicationArea,
+      tileCount,
+      exactTileCount,
+      pedestalCount,
+      rawRatio,
     }
   }
 
@@ -191,21 +210,23 @@ const PedestalCalculator = () => {
                     <span className="text-gray-900 font-bold">{results.totalArea.toFixed(2)} sqft</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-700 font-medium">Pedestal Pattern Area:</span>
-                    <span className="text-gray-900 font-bold">{results.pedestalPatternArea.toFixed(2)} sqft</span>
+                    <span className="text-gray-700 font-medium">Tile Area:</span>
+                    <span className="text-gray-900 font-bold">{results.tileArea.toFixed(2)} sqft</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-700 font-medium">Number of Tiles:</span>
+                    <span className="text-gray-700 font-medium">Pedestal Application Area (B):</span>
+                    <span className="text-gray-900 font-bold">
+                      {results.applicationDims.width}" × {results.applicationDims.height}" ({results.applicationArea.toFixed(2)} sqft)
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                    <span className="text-gray-700 font-medium">Estimated Tiles:</span>
                     <span className="text-gray-900 font-bold">{results.tileCount} tiles</span>
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-gray-200">
-                    <span className="text-gray-700 font-medium">Pedestals per Tile:</span>
-                    <span className="text-gray-900 font-bold">{results.pedestalsPerTile} pedestals</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200">
                     <span className="text-gray-700 font-medium text-sm">Calculation:</span>
-                    <span className="text-gray-600 font-medium text-sm">
-                      {results.exactTileCount.toFixed(2)} tiles × {results.pedestalsPerTile} pedestals = {(results.exactTileCount * results.pedestalsPerTile).toFixed(2)}
+                    <span className="text-gray-600 font-medium text-sm text-right">
+                      ({results.totalArea.toFixed(2)} ÷ {results.applicationArea.toFixed(2)}) × {PEDESTAL_WASTE_FACTOR} = {results.rawRatio.toFixed(1)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-3 bg-primary/10 rounded-lg px-4">
@@ -216,11 +237,13 @@ const PedestalCalculator = () => {
               </div>
             )}
 
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Calculation Formula:</strong> Pedestal Count = (Total Area ÷ Pedestal Pattern Area) × Pedestals per Tile
-                <br />
-                The number of pedestals per tile depends on the tile dimensions. Smaller tiles (≤24") use 4 pedestals at corners, while larger tiles require additional pedestals in the middle of longer sides.
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900 space-y-2">
+              <p>
+                <strong>Formula:</strong> Pedestal count = (Total area A ÷ Application area B) × {PEDESTAL_WASTE_FACTOR}
+              </p>
+              <p>
+                <strong>Application area (B):</strong> Maximum {MAX_PEDESTAL_SPACING_IN}" spacing between pedestals.
+                24×24 tile → 24×24; 24×48 → 24×24; 18×36 → 18×18 (centered on long edge); 12×12 → 12×12.
               </p>
             </div>
 
@@ -262,10 +285,10 @@ const PedestalCalculator = () => {
         <div className="bg-white rounded-xl shadow-lg p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">How to Use This Calculator</h2>
           <ol className="list-decimal list-inside space-y-3 text-gray-700">
-            <li>Enter the total square footage of your project area</li>
-            <li>Select your tile size from the common sizes or enter custom dimensions</li>
-            <li>The calculator will automatically determine the number of pedestals needed</li>
-            <li>Use the results to plan material quantities for your installation</li>
+            <li>Enter the total square footage of your project (A)</li>
+            <li>Select tile size — application area (B) is calculated from the max {MAX_PEDESTAL_SPACING_IN}" pedestal spacing rule</li>
+            <li>Result: (A ÷ B) × {PEDESTAL_WASTE_FACTOR} = pedestals needed (rounded up)</li>
+            <li>Use the result to plan material quantities for your installation</li>
           </ol>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
+import { productImageSrc } from '../../utils/mediaUrl'
 
 const OrdersManagement = () => {
   const [orders, setOrders] = useState([])
@@ -33,6 +34,23 @@ const OrdersManagement = () => {
       setSelectedOrder(order)
     }
   }
+
+  const getItemName = (item) => item?.name || item?.product_name || 'Unknown product'
+  const getItemQuantity = (item) => parseInt(item?.quantity, 10) || 0
+  const getItemUnitPrice = (item) => {
+    const price = parseFloat(item?.price ?? item?.product_price)
+    if (!Number.isNaN(price) && price > 0) return price
+    const qty = getItemQuantity(item)
+    const subtotal = parseFloat(item?.subtotal)
+    if (qty > 0 && !Number.isNaN(subtotal)) return subtotal / qty
+    return 0
+  }
+  const getItemLineTotal = (item) => {
+    const subtotal = parseFloat(item?.subtotal)
+    if (!Number.isNaN(subtotal)) return subtotal
+    return getItemUnitPrice(item) * getItemQuantity(item)
+  }
+  const getItemImage = (item) => productImageSrc(item?.image || item?.product_image)
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
@@ -159,16 +177,41 @@ const OrdersManagement = () => {
 
                 <div>
                   <h4 className="font-semibold text-gray-700 mb-2">Order Items</h4>
-                  <div className="space-y-2">
-                    {(selectedOrder.items || []).map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm border-b pb-2">
-                        <div>
-                          <p className="font-semibold">{item.name}</p>
-                          <p className="text-gray-500">Qty: {item.quantity} × ${(parseFloat(item.price) || 0).toFixed(2)}</p>
+                  <div className="space-y-3">
+                    {(selectedOrder.items || []).length === 0 ? (
+                      <p className="text-sm text-gray-500">No line items found for this order.</p>
+                    ) : (
+                      (selectedOrder.items || []).map((item, index) => (
+                        <div
+                          key={item.id || `${item.product_id}-${index}`}
+                          className="flex gap-3 border-b border-gray-100 pb-3 last:border-b-0"
+                        >
+                          <img
+                            src={getItemImage(item)}
+                            alt={getItemName(item)}
+                            width={64}
+                            height={64}
+                            className="w-16 h-16 rounded-lg object-cover border border-gray-200 shrink-0 bg-gray-50"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-800 text-sm leading-snug">
+                              {getItemName(item)}
+                            </p>
+                            {item.selected_size && (
+                              <p className="text-xs text-gray-500 mt-0.5">Size: {item.selected_size}</p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">
+                              Qty: {getItemQuantity(item)} × ${getItemUnitPrice(item).toFixed(2)}
+                            </p>
+                          </div>
+                          <div className="text-sm font-semibold text-gray-800 shrink-0">
+                            ${getItemLineTotal(item).toFixed(2)}
+                          </div>
                         </div>
-                        <span className="font-semibold">${((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0)).toFixed(2)}</span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 

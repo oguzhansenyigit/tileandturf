@@ -70,7 +70,10 @@ const WhoWeAre = () => {
                 <img 
                   src={logoImage} 
                   alt="Tile and Turf Logo" 
+                  width={192}
+                  height={192}
                   className="relative z-10 h-36 md:h-48 w-auto mx-auto drop-shadow-lg"
+                  decoding="async"
                 />
               </div>
             </div>
