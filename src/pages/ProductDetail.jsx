@@ -12,7 +12,7 @@ import {
   GENERIC_KEYWORDS,
   GENERIC_DESCRIPTION,
 } from '../config/siteSeo'
-import { applyDocumentSeo } from '../utils/documentSeo'
+import { applyDocumentSeo, applyProductJsonLd, clearProductJsonLd } from '../utils/documentSeo'
 import {
   buildVariationsFromProductData,
   getColorOptionVisual,
@@ -26,6 +26,7 @@ import ProductVariationSelector from '../components/ProductVariationSelector'
 import ProductCard from '../components/ProductCard'
 import MoneyAmount from '../components/MoneyAmount'
 import { applyCategoryDiscount } from '../utils/pricing'
+import { trackPageView, setLiveProductId } from '../utils/siteAnalytics'
 import Slider from 'react-slick'
 import 'slick-carousel/slick/slick.css'
 import 'slick-carousel/slick/slick-theme.css'
@@ -88,6 +89,10 @@ const ProductDetail = () => {
   useEffect(() => {
     fetchProduct()
   }, [slug])
+
+  useEffect(() => {
+    return () => setLiveProductId(null)
+  }, [])
 
   const primaryColorVariation = useMemo(
     () => variations.find((v) => v.type === 'color'),
@@ -196,6 +201,48 @@ const ProductDetail = () => {
       author: SITE_AUTHOR,
       publisher: SITE_PUBLISHER,
     })
+
+    const price = parseFloat(product.price)
+    const imageUrl = product.image
+      ? product.image.startsWith('http')
+        ? product.image
+        : `${origin}${product.image.startsWith('/') ? '' : '/'}${product.image}`
+      : undefined
+    const availability =
+      String(product.status || 'active').toLowerCase() === 'active'
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock'
+
+    applyProductJsonLd({
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      '@id': `${canonicalUrl}#product`,
+      name: product.name,
+      description: description || undefined,
+      image: imageUrl ? [imageUrl] : undefined,
+      sku: product.sku || String(product.id),
+      mpn: product.sku || String(product.id),
+      brand: {
+        '@type': 'Brand',
+        name: 'Tile and Turf',
+      },
+      url: canonicalUrl,
+      offers: {
+        '@type': 'Offer',
+        url: canonicalUrl,
+        priceCurrency: 'USD',
+        price: Number.isFinite(price) ? price.toFixed(2) : undefined,
+        availability,
+        itemCondition: 'https://schema.org/NewCondition',
+        seller: {
+          '@type': 'Organization',
+          name: 'Tile and Turf',
+          '@id': `${origin}/#organization`,
+        },
+      },
+    })
+
+    return () => clearProductJsonLd()
   }, [product, loading])
 
   const fetchProductDetailPromo = async () => {
@@ -274,6 +321,13 @@ const ProductDetail = () => {
       setLength(null)
       setLengthInput('')
       setSqft('')
+
+      if (productData?.id) {
+        trackPageView({
+          path: window.location.pathname,
+          productId: productData.id,
+        })
+      }
       
       // Fetch category PDFs if product has category
       if (productData.category_id) {
@@ -495,14 +549,12 @@ const ProductDetail = () => {
       finalPrice = parseFloat(product.length_base_price) + ((length - 1) * parseFloat(product.length_increment_price))
     }
     
-    // For packaged products: use package price directly from database
-    // Don't use variation prices - just use the package price as is
+    // For packaged products: use package price from the Price field.
+    // Never override sqft/length pricing — those already produced the correct line total.
     const isPackaged = product.is_packaged == 1 || product.is_packaged === true
     let priceForCart = finalPrice
-    
-    // For packaged products, always use package price (product.price) directly
-    // This is the package price stored in database (admin panel "Price" field)
-    if (isPackaged) {
+
+    if (isPackaged && !isSqftEnabled && !isLengthEnabled) {
       priceForCart = parseFloat(product.price) || 0
     }
     
@@ -533,10 +585,10 @@ const ProductDetail = () => {
     openWhatsApp(message)
   }
 
-  const handleQuickOrder = () => {
+  const handleQuickOrder = async () => {
     // Add to cart without opening the sidebar
     if (!isVariationSelectionComplete()) {
-      alert('Please select at least one variation before proceeding to checkout.')
+      alert('Please select all required options before proceeding to checkout.')
       return
     }
     
@@ -587,14 +639,12 @@ const ProductDetail = () => {
       finalPrice = parseFloat(product.length_base_price) + ((length - 1) * parseFloat(product.length_increment_price))
     }
     
-    // For packaged products: use package price directly from database
-    // Don't use variation prices - just use the package price as is
+    // For packaged products: use package price from the Price field.
+    // Never override sqft/length pricing — those already produced the correct line total.
     const isPackaged = product.is_packaged == 1 || product.is_packaged === true
     let priceForCart = finalPrice
-    
-    // For packaged products, always use package price (product.price) directly
-    // This is the package price stored in database (admin panel "Price" field)
-    if (isPackaged) {
+
+    if (isPackaged && !isSqftEnabled && !isLengthEnabled) {
       priceForCart = parseFloat(product.price) || 0
     }
     
@@ -606,30 +656,22 @@ const ProductDetail = () => {
       selectedSize: selectedSize || undefined,
       sqft: isSqftEnabled ? sqft : null,
       length: isLengthEnabled ? length : null,
-      quantity: isSqftEnabled || isLengthEnabled ? 1 : quantity
+      quantity: isSqftEnabled || isLengthEnabled ? 1 : Math.max(1, quantity),
     }
     
-    // Add to cart silently (without opening sidebar)
-    if (isSqftEnabled || isLengthEnabled) {
-      // Use a custom add function that doesn't open cart
-      const { addToCartSilently } = useCart()
+    // Await cart write (+ localStorage sync) before navigating, or Checkout redirects to /cart
+    try {
       if (addToCartSilently) {
-        addToCartSilently(productWithVariations)
+        await addToCartSilently(productWithVariations)
       } else {
-        addToCart(productWithVariations)
+        await addToCart(productWithVariations, true)
       }
-    } else {
-      for (let i = 0; i < quantity; i++) {
-        const { addToCartSilently } = useCart()
-        if (addToCartSilently) {
-          addToCartSilently(productWithVariations)
-        } else {
-          addToCart(productWithVariations)
-        }
-      }
+    } catch (e) {
+      console.error('Quick checkout add-to-cart failed:', e)
+      alert('Could not add product to cart. Please try again.')
+      return
     }
-    
-    // Navigate to checkout without opening cart sidebar
+
     navigate('/checkout')
   }
 

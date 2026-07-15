@@ -88,8 +88,19 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-gray-700 mt-8 pt-6 text-center text-sm">
+        <div className="border-t border-gray-700 mt-8 pt-6 text-center text-sm space-y-2">
           <p>&copy; {new Date().getFullYear()} Tile and Turf. All rights reserved.</p>
+          <p className="text-gray-400">
+            Developed and Powered by{' '}
+            <a
+              href="https://seo.oguzhansenyigit.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:text-green-400 transition-colors font-medium"
+            >
+              Oğuzhan Şenyiğit
+            </a>
+          </p>
         </div>
       </div>
     </footer>

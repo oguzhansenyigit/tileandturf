@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $orderId = intval($order['id']);
     $order['items'] = tileandturf_db_fetch_all(
         $conn,
-        'SELECT product_name, product_price, quantity, subtotal FROM order_items WHERE order_id = ?',
+        'SELECT product_name, product_price, quantity, subtotal, selected_size FROM order_items WHERE order_id = ?',
         'i',
         $orderId
     );

@@ -67,6 +67,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
 
     if ($orderId !== false) {
+        $sessionId = trim((string)($data['session_id'] ?? ''));
+        require_once __DIR__ . '/analytics-helpers.php';
+        tileandturf_analytics_ensure_tables($conn);
+        $ip = tileandturf_client_ip();
+        if ($sessionId !== '') {
+            tileandturf_funnel_record(
+                $conn,
+                $sessionId,
+                'purchase',
+                null,
+                intval($orderId),
+                $ip
+            );
+        }
+
+        // Mark abandoned-cart remiders as recovered
+        $emailEsc = $conn->real_escape_string(strtolower($email));
+        @$conn->query(
+            "UPDATE abandoned_carts SET recovered_at = NOW()
+             WHERE recovered_at IS NULL AND (
+               LOWER(email) = '$emailEsc'" .
+            ($sessionId !== ''
+                ? " OR session_id = '" . $conn->real_escape_string($sessionId) . "'"
+                : '') .
+            ')'
+        );
+
         $orderItems = [];
         foreach ($resolvedItems as $item) {
             $productId = intval($item['product_id']);
@@ -74,25 +101,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $productPrice = floatval($item['product_price']);
             $quantity = intval($item['quantity']);
             $subtotal = floatval($item['subtotal']);
+            $selectedSize = isset($item['selected_size']) ? trim((string)$item['selected_size']) : '';
+            $qtyLabel = trim((string)($item['qty_label'] ?? $quantity));
+            if ($qtyLabel === '') {
+                $qtyLabel = (string) $quantity;
+            }
 
-            tileandturf_db_execute(
-                $conn,
-                'INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal)
-                 VALUES (?, ?, ?, ?, ?, ?)',
-                'iisdid',
-                $orderId,
-                $productId,
-                $productName,
-                $productPrice,
-                $quantity,
-                $subtotal
-            );
+            if ($sessionId !== '' && $productId > 0) {
+                tileandturf_funnel_record(
+                    $conn,
+                    $sessionId,
+                    'purchase',
+                    $productId,
+                    intval($orderId),
+                    $ip
+                );
+            }
+
+            if ($selectedSize !== '') {
+                tileandturf_db_execute(
+                    $conn,
+                    'INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal, selected_size)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    'iisdids',
+                    $orderId,
+                    $productId,
+                    $productName,
+                    $productPrice,
+                    $quantity,
+                    $subtotal,
+                    $selectedSize
+                );
+            } else {
+                tileandturf_db_execute(
+                    $conn,
+                    'INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity, subtotal)
+                     VALUES (?, ?, ?, ?, ?, ?)',
+                    'iisdid',
+                    $orderId,
+                    $productId,
+                    $productName,
+                    $productPrice,
+                    $quantity,
+                    $subtotal
+                );
+            }
 
             $orderItems[] = [
                 'name' => $productName,
                 'quantity' => $quantity,
+                'qty_label' => $qtyLabel,
+                'selected_size' => $selectedSize,
                 'price' => $productPrice,
                 'subtotal' => $subtotal,
+                'is_sqft' => $selectedSize !== '' && stripos($selectedSize, 'sqft') !== false,
             ];
         }
         
@@ -102,10 +164,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Build items table HTML
         $itemsHtml = '';
         foreach ($orderItems as $item) {
+            $qtyCell = htmlspecialchars($item['qty_label']);
+            $priceCell = '$' . number_format($item['price'], 2);
+            if (!empty($item['is_sqft'])) {
+                $priceCell .= '/sqft';
+            }
             $itemsHtml .= '<tr>
                 <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . htmlspecialchars($item['name']) . '</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $item['quantity'] . '</td>
-                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$' . number_format($item['price'], 2) . '</td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $qtyCell . '</td>
+                <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">' . $priceCell . '</td>
                 <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$' . number_format($item['subtotal'], 2) . '</td>
             </tr>';
         }
@@ -177,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <thead>
                                     <tr style="background-color: #f9fafb;">
                                         <th style="padding: 12px; text-align: left; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Product</th>
-                                        <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qty</th>
+                                        <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qty / Sqft</th>
                                         <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Price</th>
                                         <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Subtotal</th>
                                     </tr>
@@ -254,7 +321,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $adminBody .= "$country\n\n";
         $adminBody .= "ORDER ITEMS:\n";
         foreach ($orderItems as $item) {
-            $adminBody .= "- {$item['name']} x{$item['quantity']} @ $" . number_format($item['price'], 2) . " = $" . number_format($item['subtotal'], 2) . "\n";
+            $qtyPart = $item['qty_label'];
+            $pricePart = '$' . number_format($item['price'], 2);
+            if (!empty($item['is_sqft'])) {
+                $pricePart .= '/sqft';
+            }
+            $adminBody .= "- {$item['name']} — {$qtyPart} @ {$pricePart} = $" . number_format($item['subtotal'], 2) . "\n";
         }
         $adminBody .= "\nTOTAL: $" . number_format($total, 2) . "\n";
         $adminBody .= "PAYMENT METHOD: $paymentMethod\n\n";

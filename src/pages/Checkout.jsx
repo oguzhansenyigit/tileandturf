@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import ShippingCalculator from '../components/ShippingCalculator'
+import { getAnalyticsSessionId, trackFunnelEvent } from '../utils/siteAnalytics'
+import { saveCartLead } from '../utils/saveCartLead'
 
 const Checkout = () => {
   const navigate = useNavigate()
   const { cart, getCartTotal, clearCart } = useCart()
   const orderPlacedRef = useRef(false)
+  const checkoutTrackedRef = useRef(false)
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -25,11 +28,50 @@ const Checkout = () => {
   const [shippingCost, setShippingCost] = useState(null)
 
   useEffect(() => {
-    // Only redirect if cart is empty AND we haven't just placed an order
-    if (cart.length === 0 && !orderPlacedRef.current && !loading && window.location.pathname === '/checkout') {
-      navigate('/cart', { replace: true })
-    }
+    // Give cart state a moment to catch up after Quick Checkout navigation.
+    // Also accept a freshly written localStorage cart before bouncing to /cart.
+    if (cart.length > 0 || orderPlacedRef.current || loading) return
+
+    const t = setTimeout(() => {
+      if (orderPlacedRef.current || loading) return
+      try {
+        const raw = localStorage.getItem('cart')
+        const stored = raw ? JSON.parse(raw) : []
+        if (Array.isArray(stored) && stored.length > 0) {
+          // Cart context may still be catching up; stay on checkout
+          return
+        }
+      } catch {
+        /* ignore */
+      }
+      if (window.location.pathname === '/checkout') {
+        navigate('/cart', { replace: true })
+      }
+    }, 450)
+
+    return () => clearTimeout(t)
   }, [cart, navigate, loading])
+
+  useEffect(() => {
+    if (cart.length > 0 && !checkoutTrackedRef.current) {
+      checkoutTrackedRef.current = true
+      trackFunnelEvent('begin_checkout')
+      cart.forEach((item) => {
+        if (item?.id && !item.is_gift) {
+          trackFunnelEvent('begin_checkout', { productId: item.id })
+        }
+      })
+    }
+  }, [cart])
+
+  useEffect(() => {
+    const email = formData.email?.trim()
+    if (!email || !/\S+@\S+\.\S+/.test(email) || cart.length === 0) return
+    const t = setTimeout(() => {
+      saveCartLead({ email, items: cart, source: 'checkout' })
+    }, 800)
+    return () => clearTimeout(t)
+  }, [formData.email, cart])
 
   const handleChange = (e) => {
     setFormData({
@@ -77,7 +119,8 @@ const Checkout = () => {
         ...formData,
         items: cart,
         total: getCartTotal(),
-        status: 'pending'
+        status: 'pending',
+        session_id: getAnalyticsSessionId(),
       }
 
       const response = await axios.post('/api/orders.php', orderData)
@@ -330,16 +373,25 @@ const Checkout = () => {
           <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Summary</h2>
             <div className="space-y-4 mb-6">
-              {cart.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-gray-600">
-                    {item.name} x{item.quantity}
-                  </span>
-                  <span className="font-semibold">
-                    ${((parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0)).toFixed(2)}
-                  </span>
-                </div>
-              ))}
+              {cart.map((item) => {
+                let lineTotal = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0)
+                let label = `${item.name} x${item.quantity}`
+                if (item.sqft && item.sqft_price) {
+                  lineTotal = parseFloat(item.sqft) * parseFloat(item.sqft_price)
+                  label = `${item.name} (${item.sqft} sqft)`
+                } else if (item.length && item.length_base_price && item.length_increment_price) {
+                  lineTotal =
+                    parseFloat(item.length_base_price) +
+                    ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
+                  label = `${item.name} (length: ${item.length})`
+                }
+                return (
+                  <div key={`${item.id}_${item.sqft || 0}_${item.length || 0}`} className="flex justify-between text-sm">
+                    <span className="text-gray-600">{label}</span>
+                    <span className="font-semibold">${lineTotal.toFixed(2)}</span>
+                  </div>
+                )
+              })}
               
               {/* Shipping Calculator */}
               <ShippingCalculator 

@@ -4,6 +4,7 @@ import axios from 'axios'
 const SettingsManagement = () => {
   const [settings, setSettings] = useState({})
   const [loading, setLoading] = useState(true)
+  const [savingHomeSuggest, setSavingHomeSuggest] = useState(false)
   const [topBanner, setTopBanner] = useState({
     text: '',
     is_active: true
@@ -12,6 +13,7 @@ const SettingsManagement = () => {
     content: '',
     is_active: true
   })
+  const [homeSuggestionsOn, setHomeSuggestionsOn] = useState(true)
 
   useEffect(() => {
     fetchSettings()
@@ -32,6 +34,8 @@ const SettingsManagement = () => {
         content: data.product_detail_promo_content || '',
         is_active: data.product_detail_promo_status === 'active' || data.product_detail_promo_active === '1'
       })
+      // Default ON when setting has never been saved
+      setHomeSuggestionsOn(data.home_suggestions_status !== 'inactive')
     } catch (error) {
       console.error('Error fetching settings:', error)
       setSettings({})
@@ -66,6 +70,23 @@ const SettingsManagement = () => {
     } catch (error) {
       console.error('Error saving settings:', error)
       alert('Error saving settings')
+    }
+  }
+
+  const handleToggleHomeSuggestions = async (next) => {
+    const previous = homeSuggestionsOn
+    setHomeSuggestionsOn(next)
+    setSavingHomeSuggest(true)
+    try {
+      await axios.post('/api/admin/settings.php', {
+        home_suggestions_status: next ? 'active' : 'inactive',
+      })
+    } catch (error) {
+      console.error('Error saving home suggestions setting:', error)
+      setHomeSuggestionsOn(previous)
+      alert('Could not save setting. Please try again.')
+    } finally {
+      setSavingHomeSuggest(false)
     }
   }
 
@@ -154,12 +175,45 @@ const SettingsManagement = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">General Settings</h3>
-        <p className="text-gray-600">More settings will be available here.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800">Homepage product suggestions</h3>
+            <p className="text-sm text-gray-600 mt-1 max-w-xl">
+              After ~10 seconds on the homepage, gently show a small recommended-products card.
+              Turn this off anytime — visitors will stop seeing it on their next page load.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={homeSuggestionsOn}
+            disabled={savingHomeSuggest}
+            onClick={() => handleToggleHomeSuggestions(!homeSuggestionsOn)}
+            className={`
+              relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+              disabled:opacity-60
+              ${homeSuggestionsOn ? 'bg-primary' : 'bg-gray-300'}
+            `}
+          >
+            <span
+              className={`
+                inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform
+                ${homeSuggestionsOn ? 'translate-x-7' : 'translate-x-1'}
+              `}
+            />
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          Status:{' '}
+          <span className={`font-semibold ${homeSuggestionsOn ? 'text-green-700' : 'text-gray-600'}`}>
+            {homeSuggestionsOn ? 'On' : 'Off'}
+          </span>
+          {savingHomeSuggest ? ' · Saving…' : ''}
+        </p>
       </div>
     </div>
   )
 }
 
 export default SettingsManagement
-

@@ -4,6 +4,7 @@ import Tagline from '../components/Tagline'
 import CategoryGrid from '../components/CategoryGrid'
 import ProductSection from '../components/ProductSection'
 import WhoWeAre from '../components/WhoWeAre'
+import HomeSuggestions from '../components/HomeSuggestions'
 
 const Home = () => {
   return (
@@ -14,6 +15,7 @@ const Home = () => {
       <Tagline />
       <ProductSection />
       <WhoWeAre />
+      <HomeSuggestions />
     </div>
   )
 }

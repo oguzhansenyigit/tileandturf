@@ -50,3 +50,32 @@ export function applyDocumentSeo(opts = {}) {
   if (publisher) setMetaName('publisher', publisher)
   if (canonicalUrl) setCanonical(canonicalUrl)
 }
+
+const PRODUCT_LD_ID = 'tt-product-jsonld'
+
+/**
+ * Inject / update Product + Offer JSON-LD for the current product page.
+ * Leaves Organization JSON-LD from the server shell intact.
+ */
+export function applyProductJsonLd(data) {
+  if (!data || typeof document === 'undefined') return
+
+  // Prefer a single product script (remove SSR duplicate if present)
+  const ssr = document.getElementById('tt-product-jsonld-ssr')
+  if (ssr) ssr.remove()
+
+  let el = document.getElementById(PRODUCT_LD_ID)
+  if (!el) {
+    el = document.createElement('script')
+    el.type = 'application/ld+json'
+    el.id = PRODUCT_LD_ID
+    document.head.appendChild(el)
+  }
+  el.textContent = JSON.stringify(data)
+}
+
+export function clearProductJsonLd() {
+  if (typeof document === 'undefined') return
+  document.getElementById(PRODUCT_LD_ID)?.remove()
+  document.getElementById('tt-product-jsonld-ssr')?.remove()
+}

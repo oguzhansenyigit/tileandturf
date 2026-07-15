@@ -155,11 +155,19 @@ const TrackOrder = () => {
                     )}
                     <div className="flex-1">
                       <h4 className="font-semibold text-gray-800">{item.product_name}</h4>
-                      <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                      {item.selected_size ? (
+                        <p className="text-sm text-gray-600">{item.selected_size}</p>
+                      ) : (
+                        <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">${parseFloat(item.subtotal).toFixed(2)}</p>
-                      <p className="text-sm text-gray-600">${parseFloat(item.product_price).toFixed(2)} each</p>
+                      <p className="text-sm text-gray-600">
+                        {item.selected_size && String(item.selected_size).toLowerCase().includes('sqft')
+                          ? `$${parseFloat(item.product_price).toFixed(2)}/sqft`
+                          : `$${parseFloat(item.product_price).toFixed(2)} each`}
+                      </p>
                     </div>
                   </div>
                 ))}

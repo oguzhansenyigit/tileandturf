@@ -139,7 +139,119 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
     $html = preg_replace('/<\/head>/i', '    ' . $tag . "\n</head>", $html, 1);
 }
 
-function tileandturf_ensure_document_seo(string $html): string
+/**
+ * Append Product + Offer JSON-LD for /product/{slug|id} (crawler-friendly).
+ *
+ * @param mysqli|null $conn
+ */
+function tileandturf_inject_product_jsonld(string &$html, string $origin, $conn = null): void
+{
+    if (!$conn instanceof mysqli) {
+        return;
+    }
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    if (!preg_match('#^/product/([^/]+)/?$#', $path, $m)) {
+        return;
+    }
+    $slug = rawurldecode($m[1]);
+    if ($slug === '') {
+        return;
+    }
+
+    $product = null;
+    if (ctype_digit($slug)) {
+        $id = intval($slug);
+        $stmt = $conn->prepare(
+            'SELECT id, name, slug, description, meta_description, price, image, sku, status
+             FROM products WHERE id = ? LIMIT 1'
+        );
+        if ($stmt) {
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            $product = $res ? $res->fetch_assoc() : null;
+            $stmt->close();
+        }
+    }
+    if (!$product) {
+        $stmt = $conn->prepare(
+            'SELECT id, name, slug, description, meta_description, price, image, sku, status
+             FROM products WHERE slug = ? LIMIT 1'
+        );
+        if ($stmt) {
+            $stmt->bind_param('s', $slug);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            $product = $res ? $res->fetch_assoc() : null;
+            $stmt->close();
+        }
+    }
+    if (!$product) {
+        return;
+    }
+
+    $pathSeg = (!empty($product['slug']))
+        ? rawurlencode((string)$product['slug'])
+        : (string)intval($product['id']);
+    $url = rtrim($origin, '/') . '/product/' . $pathSeg;
+    $desc = trim((string)($product['meta_description'] ?: ''));
+    if ($desc === '') {
+        $desc = trim(strip_tags((string)($product['description'] ?? '')));
+    }
+    if (strlen($desc) > 300) {
+        $desc = substr($desc, 0, 297) . '...';
+    }
+    $img = trim((string)($product['image'] ?? ''));
+    if ($img !== '' && strpos($img, 'http') !== 0) {
+        $img = rtrim($origin, '/') . '/' . ltrim($img, '/');
+    }
+    $price = floatval($product['price'] ?? 0);
+    $inStock = strtolower((string)($product['status'] ?? 'active')) === 'active';
+
+    $ld = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Product',
+        '@id' => $url . '#product',
+        'name' => $product['name'],
+        'sku' => $product['sku'] ?: (string)$product['id'],
+        'mpn' => $product['sku'] ?: (string)$product['id'],
+        'brand' => [
+            '@type' => 'Brand',
+            'name' => 'Tile and Turf',
+        ],
+        'url' => $url,
+        'offers' => [
+            '@type' => 'Offer',
+            'url' => $url,
+            'priceCurrency' => 'USD',
+            'price' => number_format($price, 2, '.', ''),
+            'availability' => $inStock
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            'itemCondition' => 'https://schema.org/NewCondition',
+            'seller' => [
+                '@type' => 'Organization',
+                '@id' => rtrim($origin, '/') . '/#organization',
+                'name' => 'Tile and Turf',
+            ],
+        ],
+    ];
+    if ($desc !== '') {
+        $ld['description'] = $desc;
+    }
+    if ($img !== '') {
+        $ld['image'] = [$img];
+    }
+
+    $json = json_encode($ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if ($json === false) {
+        return;
+    }
+    $tag = '<script type="application/ld+json" id="tt-product-jsonld-ssr">' . $json . '</script>';
+    $html = preg_replace('/<\/head>/i', '    ' . $tag . "\n</head>", $html, 1);
+}
+
+function tileandturf_ensure_document_seo(string $html, $conn = null): string
 {
     $origin = 'https://tileandturf.com';
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -160,6 +272,7 @@ function tileandturf_ensure_document_seo(string $html): string
     tileandturf_upsert_meta($html, 'publisher', 'Tile and Turf');
     tileandturf_upsert_canonical($html, $canonical);
     tileandturf_inject_jsonld($html, $origin);
+    tileandturf_inject_product_jsonld($html, $origin, $conn);
 
     return $html;
 }

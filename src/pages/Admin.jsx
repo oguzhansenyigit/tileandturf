@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 import adminHttp from '../utils/adminHttp'
 import Dashboard from '../components/admin/Dashboard'
@@ -16,6 +16,7 @@ import AISeoAssistant from '../components/admin/AISeoAssistant'
 import CategoryManagement from '../components/admin/CategoryManagement'
 import PriceSync from '../components/admin/PriceSync'
 import TitleNormalizer from '../components/admin/TitleNormalizer'
+import OrderNotifications from '../components/admin/OrderNotifications'
 
 const Admin = () => {
   const [password, setPassword] = useState('')
@@ -23,6 +24,10 @@ const Admin = () => {
   const [authChecking, setAuthChecking] = useState(true)
   const [activeSection, setActiveSection] = useState('dashboard')
   const [loginLoading, setLoginLoading] = useState(false)
+  const [orderBadge, setOrderBadge] = useState({ pending: 0, unseen: 0 })
+
+  const openOrders = useCallback(() => setActiveSection('orders'), [])
+  const onBadgeChange = useCallback((badge) => setOrderBadge(badge), [])
 
   useEffect(() => {
     adminHttp
@@ -44,6 +49,12 @@ const Admin = () => {
       axios.defaults.withCredentials = false
     }
   }, [authenticated])
+
+  useEffect(() => {
+    if (activeSection === 'orders') {
+      window.dispatchEvent(new CustomEvent('tt-open-orders'))
+    }
+  }, [activeSection])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -135,10 +146,11 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
         <div className="flex items-center justify-between px-6 py-4">
           <h1 className="text-2xl font-bold text-gray-800">Admin Panel</h1>
           <div className="flex items-center space-x-3">
+            <OrderNotifications onOpenOrders={openOrders} onBadgeChange={onBadgeChange} />
             <a
               href="/"
               target="_blank"
@@ -172,7 +184,20 @@ const Admin = () => {
                     }`}
                   >
                     <span className="text-xl">{item.icon}</span>
-                    <span className="font-semibold">{item.label}</span>
+                    <span className="font-semibold flex-1 text-left">{item.label}</span>
+                    {item.id === 'orders' && (orderBadge.unseen > 0 || orderBadge.pending > 0) && (
+                      <span
+                        className={`min-w-[1.35rem] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center ${
+                          orderBadge.unseen > 0
+                            ? 'bg-red-500 text-white'
+                            : activeSection === 'orders'
+                              ? 'bg-white/25 text-white'
+                              : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {orderBadge.unseen > 0 ? orderBadge.unseen : orderBadge.pending}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}

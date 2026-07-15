@@ -29,7 +29,7 @@ import PorcelainPaver from './pages/PorcelainPaver'
 import PedestalCalculator from './pages/PedestalCalculator'
 import NotFound from './pages/NotFound'
 import { CartProvider } from './context/CartContext'
-import axios from 'axios'
+import { trackPageView, trackHeartbeat } from './utils/siteAnalytics'
 import {
   SITE_ORIGIN,
   SITE_NAME,
@@ -77,26 +77,34 @@ const titleFromPath = (pathname) => {
     .join(' ')
 }
 
-// Track visitor on app load
-axios.post('/api/track-visitor.php').catch(() => {})
-
-// Track visitor activity periodically
-setInterval(() => {
-  axios.post('/api/track-visitor.php').catch(() => {})
-}, 60000) // Every minute
-
 // Scroll to top on route change
 function ScrollToTop() {
   const { pathname } = useLocation()
 
   useEffect(() => {
-    // Scroll to top when route changes
     window.scrollTo({
       top: 0,
       left: 0,
-      behavior: 'instant' // Instant scroll, no animation
+      behavior: 'instant'
     })
   }, [pathname])
+
+  return null
+}
+
+function AnalyticsTracker() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    // Product pages are tracked from ProductDetail with product_id
+    if (pathname.startsWith('/product/')) return
+    trackPageView({ path: pathname })
+  }, [pathname])
+
+  useEffect(() => {
+    const interval = setInterval(() => trackHeartbeat(), 45000)
+    return () => clearInterval(interval)
+  }, [])
 
   return null
 }
@@ -166,6 +174,7 @@ function App() {
     <CartProvider>
       <Router>
         <ScrollToTop />
+        <AnalyticsTracker />
         <SeoMeta />
         <Routes>
           {/* Public Routes - Website Frontend */}

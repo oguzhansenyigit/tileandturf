@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
+import CartEmailReminder from '../components/CartEmailReminder'
 
 const Cart = () => {
   const { cart, removeFromCart, updateQuantity, getCartTotal, clearCart } = useCart()
@@ -95,6 +96,7 @@ const Cart = () => {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Summary</h2>
+            <CartEmailReminder cart={cart} source="cart" />
             <div className="space-y-4 mb-6">
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>

@@ -5,6 +5,7 @@
  */
 $headTrackingSnippets = '';
 $bodyTrackingSnippets = '';
+$seoConn = null;
 
 try {
     ob_start();
@@ -16,6 +17,7 @@ try {
     header('Content-Type: text/html; charset=UTF-8');
 
     if (isset($conn) && $conn instanceof mysqli) {
+        $seoConn = $conn;
         $sql = "SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('head_tracking_snippets','body_tracking_snippets','google_ads_head_tag')";
         $res = $conn->query($sql);
         $map = [];
@@ -29,7 +31,6 @@ try {
             $headTrackingSnippets = trim($map['google_ads_head_tag'] ?? '');
         }
         $bodyTrackingSnippets = trim($map['body_tracking_snippets'] ?? '');
-        $conn->close();
     }
 } catch (Throwable $e) {
     // Continue without admin head injection
@@ -110,7 +111,11 @@ if ($html === false) {
 }
 
 require_once __DIR__ . '/api/seo-document.php';
-$html = tileandturf_ensure_document_seo($html);
+$html = tileandturf_ensure_document_seo($html, $seoConn);
+
+if ($seoConn instanceof mysqli) {
+    @$seoConn->close();
+}
 
 if ($headTrackingSnippets !== '') {
     $html = str_replace('</head>', $headTrackingSnippets . "\n</head>", $html);

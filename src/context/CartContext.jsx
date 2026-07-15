@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { flushSync } from 'react-dom'
 import axios from 'axios'
 import { applyProductCategoryDiscount } from '../utils/pricing'
+import { trackFunnelEvent } from '../utils/siteAnalytics'
 
 const CartContext = createContext()
 
@@ -15,102 +17,143 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const hydratedRef = React.useRef(false)
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('cart')
-    if (savedCart) {
-      setCart(JSON.parse(savedCart))
+    try {
+      const savedCart = localStorage.getItem('cart')
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart)
+        if (Array.isArray(parsed)) {
+          setCart(parsed)
+        }
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      hydratedRef.current = true
     }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart))
+    // Don't wipe stored cart with [] before hydration finishes
+    if (!hydratedRef.current) return
+    try {
+      localStorage.setItem('cart', JSON.stringify(cart))
+    } catch {
+      /* ignore */
+    }
   }, [cart])
+
+  const mergeIntoCart = (prevCart, pricedProduct) => {
+    if (pricedProduct.sqft || pricedProduct.length) {
+      const uniqueKey = `${pricedProduct.id}_${pricedProduct.sqft || 0}_${pricedProduct.length || 0}_${JSON.stringify(pricedProduct.selectedVariations || {})}`
+      const existingItem = prevCart.find((item) => {
+        const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}`
+        return itemKey === uniqueKey
+      })
+
+      if (existingItem) {
+        return prevCart.map((item) => {
+          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}`
+          return itemKey === uniqueKey
+            ? { ...item, quantity: (item.quantity || 1) + (pricedProduct.quantity || 1) }
+            : item
+        })
+      }
+      return [...prevCart, { ...pricedProduct, quantity: pricedProduct.quantity || 1 }]
+    }
+
+    const existingItem = prevCart.find(
+      (item) =>
+        item.id === pricedProduct.id &&
+        JSON.stringify(item.selectedVariations || {}) ===
+          JSON.stringify(pricedProduct.selectedVariations || {})
+    )
+    if (existingItem) {
+      return prevCart.map((item) =>
+        item.id === pricedProduct.id &&
+        JSON.stringify(item.selectedVariations || {}) ===
+          JSON.stringify(pricedProduct.selectedVariations || {})
+          ? { ...item, quantity: item.quantity + (pricedProduct.quantity || 1) }
+          : item
+      )
+    }
+    return [...prevCart, { ...pricedProduct, quantity: pricedProduct.quantity || 1 }]
+  }
+
+  const persistCart = (nextCart) => {
+    try {
+      localStorage.setItem('cart', JSON.stringify(nextCart))
+    } catch {
+      /* ignore */
+    }
+  }
 
   const addToCart = async (product, silent = false) => {
     const pricedProduct = applyProductCategoryDiscount(product)
-    setCart(prevCart => {
-      // For sqft or length products, create unique cart items based on sqft/length values
-      // Otherwise, check for existing items by id
-      if (pricedProduct.sqft || pricedProduct.length) {
-        // Create unique key for sqft/length products
-        const uniqueKey = `${pricedProduct.id}_${pricedProduct.sqft || 0}_${pricedProduct.length || 0}_${JSON.stringify(pricedProduct.selectedVariations || {})}`
-        const existingItem = prevCart.find(item => {
-          const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}`
-          return itemKey === uniqueKey
-        })
-        
-        if (existingItem) {
-          return prevCart.map(item => {
-            const itemKey = `${item.id}_${item.sqft || 0}_${item.length || 0}_${JSON.stringify(item.selectedVariations || {})}`
-            return itemKey === uniqueKey
-              ? { ...item, quantity: (item.quantity || 1) + (pricedProduct.quantity || 1) }
-              : item
-          })
-        }
-        return [...prevCart, { ...pricedProduct, quantity: pricedProduct.quantity || 1 }]
-      } else {
-        // Standard product matching
-        const existingItem = prevCart.find(item => 
-          item.id === pricedProduct.id && 
-          JSON.stringify(item.selectedVariations || {}) === JSON.stringify(pricedProduct.selectedVariations || {})
-        )
-        if (existingItem) {
-          return prevCart.map(item =>
-            item.id === pricedProduct.id && 
-            JSON.stringify(item.selectedVariations || {}) === JSON.stringify(pricedProduct.selectedVariations || {})
-              ? { ...item, quantity: item.quantity + (pricedProduct.quantity || 1) }
-              : item
-          )
-        }
-        return [...prevCart, { ...pricedProduct, quantity: pricedProduct.quantity || 1 }]
-      }
+    let nextCartSnapshot = null
+
+    // flushSync so Quick Checkout navigates with cart already updated in context
+    flushSync(() => {
+      setCart((prevCart) => {
+        nextCartSnapshot = mergeIntoCart(prevCart, pricedProduct)
+        persistCart(nextCartSnapshot)
+        return nextCartSnapshot
+      })
     })
-    
+
     // Check if product has a gift product and add it automatically
     if (product.gift_product_id) {
       try {
         const giftProductResponse = await axios.get(`/api/products.php?id=${product.gift_product_id}`)
         const giftProduct = giftProductResponse.data
-        
+
         if (giftProduct) {
-          // Add gift product with price 0
           const giftProductForCart = {
             ...giftProduct,
             price: 0,
             quantity: product.quantity || 1,
-            is_gift: true // Mark as gift product
+            is_gift: true,
           }
-          
-          setCart(prevCart => {
-            // Check if gift product already exists in cart
-            const existingGiftItem = prevCart.find(item => 
-              item.id === giftProductForCart.id && item.is_gift
+
+          setCart((prevCart) => {
+            const existingGiftItem = prevCart.find(
+              (item) => item.id === giftProductForCart.id && item.is_gift
             )
-            
+
+            let next
             if (existingGiftItem) {
-              return prevCart.map(item =>
+              next = prevCart.map((item) =>
                 item.id === giftProductForCart.id && item.is_gift
                   ? { ...item, quantity: item.quantity + (product.quantity || 1) }
                   : item
               )
+            } else {
+              next = [...prevCart, giftProductForCart]
             }
-            
-            return [...prevCart, giftProductForCart]
+            persistCart(next)
+            return next
           })
         }
       } catch (error) {
         console.error('Error fetching gift product:', error)
       }
     }
-    
+
     if (!silent) {
       setIsCartOpen(true)
     }
+
+    if (pricedProduct?.id && !pricedProduct.is_gift) {
+      trackFunnelEvent('add_to_cart', { productId: pricedProduct.id })
+    }
+
+    return nextCartSnapshot
   }
 
-  const addToCartSilently = (product) => {
-    addToCart(product, true)
+  const addToCartSilently = async (product) => {
+    return addToCart(product, true)
   }
 
   const openCart = () => setIsCartOpen(true)
@@ -126,9 +169,15 @@ export const CartProvider = ({ children }) => {
       return
     }
     setCart(prevCart =>
-      prevCart.map(item =>
-        item.id === productId ? { ...item, quantity } : item
-      )
+      prevCart.map(item => {
+        if (item.id !== productId) return item
+        // Sqft / length line totals are keyed off sqft/length, not piece quantity.
+        // Changing qty invents wrong totals (and broken order emails like "x6 @ $1.56").
+        if (item.sqft || item.length) {
+          return { ...item, quantity: 1 }
+        }
+        return { ...item, quantity }
+      })
     )
   }
 
@@ -143,12 +192,14 @@ export const CartProvider = ({ children }) => {
       // Recalculate price for sqft products (this overrides other pricing)
       if (item.sqft && item.sqft_price) {
         price = parseFloat(item.sqft) * parseFloat(item.sqft_price)
+        return total + price
       }
       // Recalculate price for length products (this overrides other pricing)
       else if (item.length && item.length_base_price && item.length_increment_price) {
         // Formula: base_price + ((length - 1) * increment_price)
         // 1 length = base_price, 2 length = base_price + increment, etc.
         price = parseFloat(item.length_base_price) + ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
+        return total + price
       }
       // If product is packaged, calculate package price (base price × pack size)
       // Note: For packaged products, item.price is the base (unit) price

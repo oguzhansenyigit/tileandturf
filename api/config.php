@@ -37,6 +37,10 @@ if (!defined('TILEANDTURF_MAIL_REPLY_TO')) {
 if (!defined('TILEANDTURF_ORDER_NOTIFY_EMAILS')) {
     define('TILEANDTURF_ORDER_NOTIFY_EMAILS', 'info@tileandturf.com,anil@pedexon.com,oguzhansenyigit14@gmail.com');
 }
+if (!defined('TILEANDTURF_CRON_SECRET')) {
+    // Change this on the server (or set env TILEANDTURF_CRON_SECRET)
+    define('TILEANDTURF_CRON_SECRET', getenv('TILEANDTURF_CRON_SECRET') ?: 'tileandturf-cron-change-me');
+}
 
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/db-helpers.php';

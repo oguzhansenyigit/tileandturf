@@ -4,6 +4,7 @@ import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
 import axios from 'axios'
 import ShippingCalculator from './ShippingCalculator'
+import CartEmailReminder from './CartEmailReminder'
 
 const CartSidebar = ({ isOpen, onClose }) => {
   const { cart, removeFromCart, updateQuantity, getCartTotal, addToCart } = useCart()
@@ -185,21 +186,29 @@ const CartSidebar = ({ isOpen, onClose }) => {
                       })()}
                     </p>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-1.5">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
-                        >
-                          -
-                        </button>
-                        <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
-                        >
-                          +
-                        </button>
-                      </div>
+                      {item.sqft || item.length ? (
+                        <span className="text-xs text-gray-500">
+                          {item.sqft
+                            ? `${item.sqft} sqft (edit on product page)`
+                            : `Length ${item.length} (edit on product page)`}
+                        </span>
+                      ) : (
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          >
+                            -
+                          </button>
+                          <span className="w-6 text-center text-sm font-semibold">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            className="w-6 h-6 border border-gray-300 rounded text-xs flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
                       <button
                         onClick={() => removeFromCart(item.id)}
                         className="text-red-600 hover:text-red-800 text-xs font-semibold"
@@ -290,6 +299,7 @@ const CartSidebar = ({ isOpen, onClose }) => {
         {/* Footer - Sticky */}
         {cart.length > 0 && (
           <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
+            <CartEmailReminder cart={cart} source="cart" compact />
             {/* Shipping Calculator */}
             <div className="mb-4">
               <label className="block text-xs font-semibold text-gray-700 mb-2">

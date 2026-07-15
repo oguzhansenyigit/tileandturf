@@ -76,10 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Build items table HTML
     $itemsHtml = '';
     foreach ($orderItems as $item) {
+        $size = trim((string)($item['selected_size'] ?? ''));
+        $qtyCell = $size !== '' ? htmlspecialchars($size) : intval($item['quantity']);
+        $priceCell = '$' . number_format($item['product_price'], 2);
+        if ($size !== '' && stripos($size, 'sqft') !== false) {
+            $priceCell .= '/sqft';
+        }
         $itemsHtml .= '<tr>
             <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">' . htmlspecialchars($item['product_name']) . '</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $item['quantity'] . '</td>
-            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">$' . number_format($item['product_price'], 2) . '</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">' . $qtyCell . '</td>
+            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">' . $priceCell . '</td>
             <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: bold;">$' . number_format($item['subtotal'], 2) . '</td>
         </tr>';
     }
@@ -151,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <thead>
                                     <tr style="background-color: #f9fafb;">
                                         <th style="padding: 12px; text-align: left; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Product</th>
-                                        <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qty</th>
+                                        <th style="padding: 12px; text-align: center; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Qty / Sqft</th>
                                         <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Price</th>
                                         <th style="padding: 12px; text-align: right; color: #374151; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Subtotal</th>
                                     </tr>

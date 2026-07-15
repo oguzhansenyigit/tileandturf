@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
@@ -10,8 +10,15 @@ import MoneyAmount from './MoneyAmount'
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart()
   const { openWhatsApp } = useWhatsApp()
+  const navigate = useNavigate()
   const [showComparison, setShowComparison] = useState(false)
   const [imgSrc, setImgSrc] = useState(() => productImageSrc(product?.image))
+
+  const needsOptions =
+    product?.sqft_enabled == 1 ||
+    product?.sqft_enabled === true ||
+    product?.length_enabled == 1 ||
+    product?.length_enabled === true
 
   useEffect(() => {
     setImgSrc(productImageSrc(product?.image))
@@ -39,6 +46,12 @@ const ProductCard = ({ product }) => {
   const handleAddToCart = (e) => {
     e.preventDefault()
     e.stopPropagation()
+    // Sqft/length products are priced from customer input on the detail page.
+    // Adding from the card would use the leftover base `price` field and undercharge.
+    if (needsOptions) {
+      navigate(getProductUrl(product))
+      return
+    }
     addToCart(product)
   }
 
@@ -223,7 +236,7 @@ const ProductCard = ({ product }) => {
                 onClick={handleAddToCart}
                 className="flex-1 bg-primary hover:bg-primary-dark text-white py-2 px-3 rounded-lg font-semibold text-sm transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
               >
-                Add to Cart
+                {needsOptions ? 'Select Options' : 'Add to Cart'}
               </button>
             )}
             {product.comparison_before && product.comparison_after && (

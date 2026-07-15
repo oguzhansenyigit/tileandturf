@@ -186,6 +186,7 @@ function tileandturf_public_settings_keys() {
         'top_banner_status',
         'product_detail_promo_content',
         'product_detail_promo_status',
+        'home_suggestions_status',
     ];
 }
 
