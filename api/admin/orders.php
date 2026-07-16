@@ -19,69 +19,85 @@ if ($method === 'GET' && ($action === 'stats' || isset($_GET['stats']))) {
 
 /** Lightweight poll for live admin order notifications */
 if ($method === 'GET' && ($action === 'poll' || isset($_GET['poll']))) {
-    $sinceId = max(0, intval($_GET['since_id'] ?? 0));
+    try {
+        $sinceId = max(0, intval($_GET['since_id'] ?? 0));
 
-    $latestRow = tileandturf_db_fetch_one($conn, 'SELECT COALESCE(MAX(id), 0) AS max_id FROM orders');
-    $latestId = intval($latestRow['max_id'] ?? 0);
-
-    $pendingRow = tileandturf_db_fetch_one(
-        $conn,
-        "SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'"
-    );
-    $pendingCount = intval($pendingRow['c'] ?? 0);
-
-    $todayRow = tileandturf_db_fetch_one(
-        $conn,
-        "SELECT COUNT(*) AS c FROM orders WHERE DATE(created_at) = CURDATE() AND status != 'cancelled'"
-    );
-    $todayCount = intval($todayRow['c'] ?? 0);
-
-    $newOrders = [];
-    if ($sinceId > 0 && $latestId > $sinceId) {
-        $rows = tileandturf_db_fetch_all(
+        $latestRow = tileandturf_db_fetch_one(
             $conn,
-            "SELECT id, order_number, first_name, last_name, email, phone, total, status, created_at,
-                    (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = orders.id) AS item_count
-             FROM orders
-             WHERE id > ?
-             ORDER BY id DESC
-             LIMIT 25",
-            'i',
-            $sinceId
+            'SELECT COALESCE(MAX(id), 0) AS max_id FROM orders',
+            ''
         );
-        foreach ($rows as $row) {
-            $newOrders[] = [
-                'id' => intval($row['id']),
-                'order_number' => $row['order_number'] ?: ('ORD-' . $row['id']),
-                'customerName' => trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')),
-                'email' => $row['email'] ?? '',
-                'phone' => $row['phone'] ?? '',
-                'total' => floatval($row['total'] ?? 0),
-                'status' => $row['status'] ?? 'pending',
-                'item_count' => intval($row['item_count'] ?? 0),
-                'created_at' => $row['created_at'] ?? '',
-            ];
-        }
-    } elseif ($sinceId <= 0) {
-        // First poll: establish baseline without flooding toasts
-        $seed = tileandturf_db_fetch_one(
+        $latestId = intval(($latestRow ?? [])['max_id'] ?? 0);
+
+        $pendingRow = tileandturf_db_fetch_one(
             $conn,
-            'SELECT id, order_number, first_name, last_name, total, status, created_at FROM orders ORDER BY id DESC LIMIT 1'
+            "SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'",
+            ''
         );
-        if ($seed) {
-            $latestId = max($latestId, intval($seed['id']));
+        $pendingCount = intval(($pendingRow ?? [])['c'] ?? 0);
+
+        $todayRow = tileandturf_db_fetch_one(
+            $conn,
+            "SELECT COUNT(*) AS c FROM orders WHERE DATE(created_at) = CURDATE() AND status != 'cancelled'",
+            ''
+        );
+        $todayCount = intval(($todayRow ?? [])['c'] ?? 0);
+
+        $newOrders = [];
+        if ($sinceId > 0 && $latestId > $sinceId) {
+            $rows = tileandturf_db_fetch_all(
+                $conn,
+                "SELECT id, order_number, first_name, last_name, email, phone, total, status, created_at,
+                        (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = orders.id) AS item_count
+                 FROM orders
+                 WHERE id > ?
+                 ORDER BY id DESC
+                 LIMIT 25",
+                'i',
+                $sinceId
+            );
+            foreach ($rows as $row) {
+                $newOrders[] = [
+                    'id' => intval($row['id']),
+                    'order_number' => $row['order_number'] ?: ('ORD-' . $row['id']),
+                    'customerName' => trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')),
+                    'email' => $row['email'] ?? '',
+                    'phone' => $row['phone'] ?? '',
+                    'total' => floatval($row['total'] ?? 0),
+                    'status' => $row['status'] ?? 'pending',
+                    'item_count' => intval($row['item_count'] ?? 0),
+                    'created_at' => $row['created_at'] ?? '',
+                ];
+            }
+        } elseif ($sinceId <= 0) {
+            // First poll: establish baseline without flooding toasts
+            $seed = tileandturf_db_fetch_one(
+                $conn,
+                'SELECT id, order_number, first_name, last_name, total, status, created_at FROM orders ORDER BY id DESC LIMIT 1',
+                ''
+            );
+            if ($seed) {
+                $latestId = max($latestId, intval($seed['id']));
+            }
         }
+
+        echo json_encode([
+            'success' => true,
+            'latest_id' => $latestId,
+            'pending_count' => $pendingCount,
+            'today_count' => $todayCount,
+            'new_orders' => $newOrders,
+            'has_new' => count($newOrders) > 0,
+            'server_time' => date('c'),
+        ]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Order poll failed',
+            'detail' => $e->getMessage(),
+        ]);
     }
-
-    echo json_encode([
-        'success' => true,
-        'latest_id' => $latestId,
-        'pending_count' => $pendingCount,
-        'today_count' => $todayCount,
-        'new_orders' => $newOrders,
-        'has_new' => count($newOrders) > 0,
-        'server_time' => date('c'),
-    ]);
     $conn->close();
     exit();
 }

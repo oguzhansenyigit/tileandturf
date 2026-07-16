@@ -74,6 +74,8 @@ const OrderNotifications = ({ onOpenOrders, onBadgeChange }) => {
   const primedRef = useRef(false)
   const titleBaseRef = useRef('Admin Panel · Tile and Turf')
   const blinkRef = useRef(null)
+  const stopPollRef = useRef(false)
+  const failCountRef = useRef(0)
 
   useEffect(() => {
     onBadgeChange?.({ pending: pendingCount, unseen })
@@ -127,9 +129,11 @@ const OrderNotifications = ({ onOpenOrders, onBadgeChange }) => {
   )
 
   const poll = useCallback(async () => {
+    if (stopPollRef.current) return
     try {
       const since = lastIdRef.current || 0
       const res = await adminHttp.get(`/api/admin/orders.php?action=poll&since_id=${since}`)
+      failCountRef.current = 0
       if (!res.data?.success) return
 
       const latest = intvalSafe(res.data.latest_id)
@@ -159,13 +163,25 @@ const OrderNotifications = ({ onOpenOrders, onBadgeChange }) => {
           /* ignore */
         }
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      const status = err?.response?.status
+      // Session expired — stop hammering the API every 12s
+      if (status === 401) {
+        stopPollRef.current = true
+        return
+      }
+      failCountRef.current += 1
+      // After several 5xx failures, back off until next page load
+      if (failCountRef.current >= 5) {
+        stopPollRef.current = true
+      }
     }
   }, [handleNewOrders])
 
   useEffect(() => {
     document.title = titleBaseRef.current
+    stopPollRef.current = false
+    failCountRef.current = 0
     try {
       const saved = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10)
       // Use saved id so orders placed while admin was closed are reported on next poll

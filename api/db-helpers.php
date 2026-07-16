@@ -3,7 +3,7 @@
  * Small prepared-statement helpers for safer queries.
  */
 
-function tileandturf_db_fetch_one($conn, $sql, $types, ...$params) {
+function tileandturf_db_fetch_one($conn, $sql, $types = '', ...$params) {
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         return null;
@@ -25,7 +25,7 @@ function tileandturf_db_fetch_one($conn, $sql, $types, ...$params) {
     return $row;
 }
 
-function tileandturf_db_fetch_all($conn, $sql, $types, ...$params) {
+function tileandturf_db_fetch_all($conn, $sql, $types = '', ...$params) {
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         return [];
