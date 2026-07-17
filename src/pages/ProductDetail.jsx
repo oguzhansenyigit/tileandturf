@@ -13,6 +13,7 @@ import {
   GENERIC_DESCRIPTION,
 } from '../config/siteSeo'
 import { applyDocumentSeo, applyProductJsonLd, clearProductJsonLd } from '../utils/documentSeo'
+import { getProductBrochureUrl } from '../utils/porcelainCatalog'
 import {
   buildVariationsFromProductData,
   getColorOptionVisual,
@@ -686,8 +687,7 @@ const ProductDetail = () => {
   }
 
   const handleDownloadBrochure = () => {
-    // Priority: product PDF > category PDF
-    const pdfUrl = product?.brochure_pdf || categoryPDFs.brochure_pdf
+    const pdfUrl = getProductBrochureUrl(product, categoryPDFs.brochure_pdf)
     if (pdfUrl) {
       window.open(pdfUrl, '_blank')
     } else {
@@ -726,7 +726,7 @@ const ProductDetail = () => {
 
   // Check if PDFs are available (product or category) - must be after loading check
   const hasDatasheet = product?.datasheet_pdf || categoryPDFs.datasheet_pdf
-  const hasBrochure = product?.brochure_pdf || categoryPDFs.brochure_pdf
+  const hasBrochure = !!getProductBrochureUrl(product, categoryPDFs.brochure_pdf)
 
   if (!product) {
     return (

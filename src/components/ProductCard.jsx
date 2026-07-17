@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useWhatsApp } from '../hooks/useWhatsApp'
 import { PLACEHOLDER_IMAGE, productImageSrc } from '../utils/mediaUrl'
 import MoneyAmount from './MoneyAmount'
+import { getProductBrochureUrl } from '../utils/porcelainCatalog'
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart()
@@ -70,8 +71,7 @@ const ProductCard = ({ product }) => {
   const handleDownloadBrochure = (e) => {
     e.preventDefault()
     e.stopPropagation()
-    // Priority: product PDF > category PDF
-    const pdfUrl = product.brochure_pdf || product.category_brochure_pdf
+    const pdfUrl = getProductBrochureUrl(product, product.category_brochure_pdf)
     if (pdfUrl) {
       window.open(pdfUrl, '_blank')
     } else {
