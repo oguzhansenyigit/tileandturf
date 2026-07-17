@@ -24,10 +24,6 @@ try {
         $categories = [];
         if ($result && $result->num_rows > 0) {
             while($row = $result->fetch_assoc()) {
-                $hay = strtolower(($row['name'] ?? '') . ' ' . ($row['slug'] ?? ''));
-                if (strpos($hay, 'porcelain') !== false) {
-                    $row['brochure_pdf'] = '/porcelain-paver-katalog.pdf';
-                }
                 $categories[] = $row;
             }
         }

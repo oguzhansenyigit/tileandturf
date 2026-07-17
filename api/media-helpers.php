@@ -1,7 +1,9 @@
 <?php
 
-/** Fixed public catalog for Porcelain Paver products (~44MB; too large for admin upload). */
+/** Fixed public catalog for the Porcelain Paver product (~44MB; too large for admin upload). */
 define('TILEANDTURF_PORCELAIN_CATALOG_PDF', '/porcelain-paver-katalog.pdf');
+/** Only this product slug gets the catalog forced. */
+define('TILEANDTURF_PORCELAIN_PRODUCT_SLUG', 'porcelain-paver1');
 
 function tileandturf_normalize_media_url($url)
 {
@@ -27,16 +29,10 @@ function tileandturf_normalize_media_url($url)
     return $scheme . '://' . $host . $url;
 }
 
-function tileandturf_is_porcelain_row(array $row): bool
+function tileandturf_is_porcelain_paver_product(array $row): bool
 {
-    $hay = strtolower(implode(' ', [
-        (string) ($row['name'] ?? ''),
-        (string) ($row['slug'] ?? ''),
-        (string) ($row['category_name'] ?? ''),
-        (string) ($row['category_slug'] ?? ''),
-        (string) ($row['title'] ?? ''),
-    ]));
-    return strpos($hay, 'porcelain') !== false;
+    $slug = strtolower(trim((string) ($row['slug'] ?? '')));
+    return $slug === TILEANDTURF_PORCELAIN_PRODUCT_SLUG;
 }
 
 function tileandturf_normalize_product_media(array $row): array
@@ -61,12 +57,9 @@ function tileandturf_normalize_product_media(array $row): array
         }
     }
 
-    // Always attach the porcelain catalog (no admin upload needed for large PDF)
-    if (tileandturf_is_porcelain_row($row)) {
+    // Only https://tileandturf.com/product/porcelain-paver1
+    if (tileandturf_is_porcelain_paver_product($row)) {
         $row['brochure_pdf'] = TILEANDTURF_PORCELAIN_CATALOG_PDF;
-        if (array_key_exists('category_brochure_pdf', $row)) {
-            $row['category_brochure_pdf'] = TILEANDTURF_PORCELAIN_CATALOG_PDF;
-        }
     }
 
     return $row;

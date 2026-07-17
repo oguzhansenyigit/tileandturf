@@ -1,23 +1,14 @@
-/** Shared porcelain catalog path (large PDF in /public — not uploaded via admin). */
+/** Catalog for the single Porcelain Paver product (large PDF in /public). */
 export const PORCELAIN_CATALOG_PDF = '/porcelain-paver-katalog.pdf'
+export const PORCELAIN_PRODUCT_SLUG = 'porcelain-paver1'
 
-export function isPorcelainProduct(product) {
+export function isPorcelainPaverProduct(product) {
   if (!product) return false
-  const hay = [
-    product.name,
-    product.slug,
-    product.category_name,
-    product.category_slug,
-    product.category,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-  return hay.includes('porcelain')
+  return String(product.slug || '').toLowerCase() === PORCELAIN_PRODUCT_SLUG
 }
 
-/** Brochure URL with porcelain catalog forced when applicable. */
+/** Brochure URL — forces catalog only on porcelain-paver1. */
 export function getProductBrochureUrl(product, categoryBrochure) {
-  if (isPorcelainProduct(product)) return PORCELAIN_CATALOG_PDF
+  if (isPorcelainPaverProduct(product)) return PORCELAIN_CATALOG_PDF
   return product?.brochure_pdf || categoryBrochure || null
 }
