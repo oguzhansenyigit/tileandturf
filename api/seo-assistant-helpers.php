@@ -274,7 +274,7 @@ function tileandturf_openai_enhance_product_seo($product, $categoryName, $baseSu
         'messages' => [
             [
                 'role' => 'system',
-                'content' => 'You are an SEO copywriter for Tile and Turf, a US building materials company. Write natural, organic, non-spammy English. Return ONLY valid JSON with keys: meta_title (max 60 chars), meta_description (max 160 chars), meta_keywords (comma-separated, max 500 chars), description (HTML with 2-3 short paragraphs, no hype, factual).',
+                'content' => 'You are an SEO copywriter for Tile and Turf, a New York (Maspeth, NY) based US building materials company serving the United States only. Never mention Turkey, Istanbul, Bahcelievler, or any non-US local market. Write natural, organic, non-spammy English. Return ONLY valid JSON with keys: meta_title (max 60 chars), meta_description (max 160 chars), meta_keywords (comma-separated, max 500 chars), description (HTML with 2-3 short paragraphs, no hype, factual).',
             ],
             [
                 'role' => 'user',

@@ -56,7 +56,7 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
                 ],
                 'image' => $origin . '/logo.svg',
                 'description' =>
-                    'Tile and Turf is a USA supplier of premium outdoor and roofing building materials: porcelain pavers, Brazilian hardwood decking and wood tile (IPE, Cumaru, Tigerwood, Jatoba, Garapa), synthetic turf, green roof systems, concrete pavers, and adjustable paver pedestal systems for commercial and residential projects.',
+                    'Tile and Turf is a New York–based USA supplier of premium outdoor and roofing building materials: porcelain pavers, Brazilian hardwood decking and wood tile (IPE, Cumaru, Tigerwood, Jatoba, Garapa), synthetic turf, green roof systems, concrete pavers, and adjustable paver pedestal systems for commercial and residential projects.',
                 'slogan' => 'Premium building materials for outdoor and roofing projects.',
                 'email' => 'info@tileandturf.com',
                 'telephone' => '+1-516-774-1808',
@@ -67,6 +67,18 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
                     'addressRegion' => 'NY',
                     'postalCode' => '11378',
                     'addressCountry' => 'US',
+                ],
+                'location' => [
+                    '@type' => 'Place',
+                    'name' => 'Tile and Turf — Maspeth, New York',
+                    'address' => [
+                        '@type' => 'PostalAddress',
+                        'streetAddress' => '5424 73rd Pl',
+                        'addressLocality' => 'Maspeth',
+                        'addressRegion' => 'NY',
+                        'postalCode' => '11378',
+                        'addressCountry' => 'US',
+                    ],
                 ],
                 'areaServed' => [
                     '@type' => 'Country',
