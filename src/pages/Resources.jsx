@@ -40,7 +40,7 @@ const Resources = () => {
       description: 'Find detailed technical specifications and catalog, performance data, and installation guidelines for our porcelain pavers. Download the latest Technical Data Sheets and catalogs to ensure proper handling, application, and maintenance of your products.',
       image: '/porcelain-paver2.webp',
       tdsUrl: '/Porcelain-Paver-TDS-1.pdf',
-      catalogUrl: '/porcelain-paver-katalog.pdf',
+      catalogUrl: '/porcelain-paver-katalog.pdf?v=20260717',
       gradient: 'from-gray-600 to-slate-700',
       icon: '🏗️'
     },

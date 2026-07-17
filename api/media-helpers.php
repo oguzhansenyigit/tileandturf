@@ -1,7 +1,7 @@
 <?php
 
 /** Fixed public catalog for the Porcelain Paver product (~44MB; too large for admin upload). */
-define('TILEANDTURF_PORCELAIN_CATALOG_PDF', '/porcelain-paver-katalog.pdf');
+define('TILEANDTURF_PORCELAIN_CATALOG_PDF', '/porcelain-paver-katalog.pdf?v=20260717');
 /** Only this product slug gets the catalog forced. */
 define('TILEANDTURF_PORCELAIN_PRODUCT_SLUG', 'porcelain-paver1');
 

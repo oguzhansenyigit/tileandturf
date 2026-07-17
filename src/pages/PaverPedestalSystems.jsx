@@ -1,5 +1,6 @@
 import React from 'react'
 import ImageComparison from '../components/ImageComparison'
+import { PORCELAIN_CATALOG_PDF } from '../utils/porcelainCatalog'
 
 const PaverPedestalSystems = () => {
   const handleDownloadDatasheet = () => {
@@ -7,7 +8,7 @@ const PaverPedestalSystems = () => {
   }
 
   const handleDownloadBrochure = () => {
-    window.open('/porcelain-paver-katalog.pdf', '_blank')
+    window.open(PORCELAIN_CATALOG_PDF, '_blank')
   }
 
   const comparisons = [

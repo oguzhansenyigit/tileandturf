@@ -1,5 +1,5 @@
-/** Catalog for the single Porcelain Paver product (large PDF in /public). */
-export const PORCELAIN_CATALOG_PDF = '/porcelain-paver-katalog.pdf'
+/** Catalog for porcelain-paver1 + pedestal/resources pages (large PDF in /public). */
+export const PORCELAIN_CATALOG_PDF = '/porcelain-paver-katalog.pdf?v=20260717'
 export const PORCELAIN_PRODUCT_SLUG = 'porcelain-paver1'
 
 export function isPorcelainPaverProduct(product) {

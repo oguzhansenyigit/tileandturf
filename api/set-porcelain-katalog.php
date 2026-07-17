@@ -9,7 +9,7 @@ tileandturf_require_admin();
 
 header('Content-Type: application/json');
 
-$catalog = '/porcelain-paver-katalog.pdf';
+$catalog = '/porcelain-paver-katalog.pdf?v=20260717';
 $slug = 'porcelain-paver1';
 $updated = 0;
 
