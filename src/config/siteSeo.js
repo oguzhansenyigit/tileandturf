@@ -14,10 +14,10 @@ export const DEFAULT_ROBOTS = 'index, follow'
 export const HOME_TITLE = 'Tile and Turf - Building Materials'
 
 export const HOME_DESCRIPTION =
-  'Tile and Turf supplies premium building materials including porcelain pavers, IPE wood tile, synthetic turf, green roof systems, concrete pavers, and adjustable paver pedestal systems for commercial and residential projects in the USA.'
+  'Tile and Turf (tileandturf.com) — New York outdoor building materials supplier in Maspeth, NY. Porcelain pavers, IPE wood tile, synthetic turf, green roofs, concrete pavers, and pedestal systems for USA projects.'
 
 export const HOME_KEYWORDS =
-  'tile and turf, building materials, porcelain pavers, IPE tile, synthetic turf, green roof, paver pedestals, concrete pavers, outdoor flooring, USA'
+  'Tile and Turf, tileandturf.com, Maspeth NY, New York building materials, porcelain pavers, IPE tile, synthetic turf, green roof, paver pedestals, concrete pavers, outdoor flooring, USA'
 
 export const GENERIC_DESCRIPTION =
   'Shop premium outdoor and roofing building materials at Tile and Turf — porcelain pavers, wood tile, turf, green roofs, and pedestal systems with technical support and fast shipping.'

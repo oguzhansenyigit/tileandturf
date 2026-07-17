@@ -44,10 +44,10 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
         '@context' => 'https://schema.org',
         '@graph' => [
             [
-                '@type' => 'Organization',
+                '@type' => ['Organization', 'LocalBusiness', 'HomeGoodsStore'],
                 '@id' => $origin . '/#organization',
                 'name' => 'Tile and Turf',
-                'alternateName' => ['TileAndTurf', 'Tile & Turf', 'tileandturf'],
+                'alternateName' => ['TileAndTurf', 'Tile & Turf', 'tileandturf', 'Tile and Turf Maspeth'],
                 'legalName' => 'Tile and Turf',
                 'url' => $origin . '/',
                 'logo' => [
@@ -56,10 +56,16 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
                 ],
                 'image' => $origin . '/logo.svg',
                 'description' =>
-                    'Tile and Turf is a New York–based USA supplier of premium outdoor and roofing building materials: porcelain pavers, Brazilian hardwood decking and wood tile (IPE, Cumaru, Tigerwood, Jatoba, Garapa), synthetic turf, green roof systems, concrete pavers, and adjustable paver pedestal systems for commercial and residential projects.',
+                    'Tile and Turf (tileandturf.com) is a New York–based USA supplier of premium outdoor and roofing building materials: porcelain pavers, Brazilian hardwood decking and wood tile (IPE, Cumaru, Tigerwood, Jatoba, Garapa), synthetic turf, green roof systems, concrete pavers, and adjustable paver pedestal systems for commercial and residential projects.',
+                'disambiguatingDescription' =>
+                    'Official website tileandturf.com. New York company based in Maspeth, NY. Not affiliated with Tile Tech Pavers, Rymar Canada, or other similarly named brands.',
                 'slogan' => 'Premium building materials for outdoor and roofing projects.',
                 'email' => 'info@tileandturf.com',
                 'telephone' => '+1-516-774-1808',
+                'foundingLocation' => [
+                    '@type' => 'Place',
+                    'name' => 'Maspeth, New York, USA',
+                ],
                 'address' => [
                     '@type' => 'PostalAddress',
                     'streetAddress' => '5424 73rd Pl',
@@ -88,7 +94,7 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
                     '@type' => 'ContactPoint',
                     'telephone' => '+1-516-774-1808',
                     'email' => 'info@tileandturf.com',
-                    'contactType' => 'sales',
+                    'contactType' => 'customer',
                     'areaServed' => 'US',
                     'availableLanguage' => ['English'],
                 ],

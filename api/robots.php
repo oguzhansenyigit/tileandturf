@@ -17,13 +17,18 @@ $baseUrl = 'https://tileandturf.com';
 $sql = "SELECT setting_value FROM settings WHERE setting_key = 'robots_txt'";
 $result = $conn->query($sql);
 
-$content = "User-agent: *\nAllow: /\n\nSitemap: " . $baseUrl . "/sitemap.xml";
+$content = "User-agent: *\nAllow: /\n\nSitemap: " . $baseUrl . "/sitemap.xml\n\n# AI / LLM brand brief\n# https://tileandturf.com/llms.txt";
 
 if ($result && $result->num_rows > 0) {
     $row = $result->fetch_assoc();
     if ($row['setting_value']) {
         $content = $row['setting_value'];
     }
+}
+
+// Ensure AI crawlers can discover the brand brief
+if (stripos($content, 'llms.txt') === false) {
+    $content = rtrim($content) . "\n\n# AI / LLM brand brief\n# " . $baseUrl . "/llms.txt\n";
 }
 
 echo $content;

@@ -40,10 +40,11 @@ const WhoWeAre = () => {
             </h2>
             <div className="space-y-5 text-gray-700 text-base md:text-lg leading-relaxed">
               <p className="font-medium">
-                Tile and Turf is your trusted partner for premium building materials and innovative 
-                outdoor solutions. With years of experience in the industry, we specialize in providing 
-                high-quality products including adjustable pedestals, IPE wood decking, concrete pavers, 
-                porcelain pavers, synthetic turf systems, and green roof solutions.
+                Tile and Turf is a New York–based supplier (Maspeth, NY) and your trusted partner for
+                premium building materials and innovative outdoor solutions. With years of experience
+                in the industry, we specialize in providing high-quality products including adjustable
+                pedestals, IPE wood decking, concrete pavers, porcelain pavers, synthetic turf systems,
+                and green roof solutions — shipping across the United States.
               </p>
               <p>
                 Our commitment to excellence and customer satisfaction drives everything we do. We work 
