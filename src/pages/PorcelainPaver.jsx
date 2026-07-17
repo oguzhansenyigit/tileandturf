@@ -12,8 +12,8 @@ const PorcelainPaver = () => {
   const [beforeImage, setBeforeImage] = useState('/porcelain-paver.webp')
   const [afterImage, setAfterImage] = useState('/porcelain-paver-after.webp')
   const [mainImage, setMainImage] = useState('/porcelain-paver2.webp')
-  const [catalogPdf, setCatalogPdf] = useState('/Porcelain-Paver-catalogue (2).pdf')
-  const [tdsPdf, setTdsPdf] = useState('/Porcelain-Paver-TDS (4).pdf')
+  const [catalogPdf, setCatalogPdf] = useState('/porcelain-paver-katalog.pdf')
+  const [tdsPdf, setTdsPdf] = useState('/Porcelain-Paver-TDS-1.pdf')
 
   useEffect(() => {
     fetchCategoryData()
@@ -35,10 +35,8 @@ const PorcelainPaver = () => {
       if (porcelainCategory) {
         setCategoryData(porcelainCategory)
         
-        // Set PDFs from category if available
-        if (porcelainCategory.brochure_pdf) {
-          setCatalogPdf(porcelainCategory.brochure_pdf)
-        }
+        // Always use the current porcelain catalog in /public
+        setCatalogPdf('/porcelain-paver-katalog.pdf')
         if (porcelainCategory.datasheet_pdf) {
           setTdsPdf(porcelainCategory.datasheet_pdf)
         }

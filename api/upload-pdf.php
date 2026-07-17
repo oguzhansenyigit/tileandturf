@@ -22,7 +22,7 @@ $validation = tileandturf_validate_uploaded_file(
     $file,
     ['application/pdf'],
     ['pdf'],
-    10 * 1024 * 1024
+    50 * 1024 * 1024
 );
 
 if (!$validation['ok']) {
