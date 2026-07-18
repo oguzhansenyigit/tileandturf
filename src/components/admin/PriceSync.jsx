@@ -9,6 +9,7 @@ const STATUS_META = {
   no_match: { label: 'No match', cls: 'bg-gray-100 text-gray-600' },
   no_price: { label: 'No price / call for pricing', cls: 'bg-gray-100 text-gray-600' },
   no_dimension: { label: 'No size in name', cls: 'bg-gray-100 text-gray-600' },
+  draft_added: { label: 'Draft added ✓', cls: 'bg-blue-100 text-blue-800' },
   error: { label: 'Fetch error', cls: 'bg-red-100 text-red-800' },
 }
 
@@ -25,6 +26,7 @@ const PriceSync = () => {
   const [expanded, setExpanded] = useState({})
   const [applying, setApplying] = useState(false)
   const [applyProgress, setApplyProgress] = useState(0)
+  const [drafting, setDrafting] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('success')
 
@@ -125,7 +127,9 @@ const PriceSync = () => {
   const selectableRows = rows.filter(
     (p) => (p.status === 'matched' || p.status === 'matched_simple') && p.updatable_count > 0
   )
+  const draftableRows = rows.filter((p) => p.status === 'no_match' && p.can_add_draft)
   const selectedCount = selectableRows.filter((p) => selected[rowKey(p.url)]).length
+  const selectedDraftCount = draftableRows.filter((p) => selected[rowKey(p.url)]).length
 
   const toggleAll = (checked) => {
     const next = { ...selected }
@@ -187,7 +191,62 @@ const PriceSync = () => {
     setApplyProgress(0)
   }
 
-  const isBusy = loading || applying
+  const addSelectedDrafts = async () => {
+    const toAdd = draftableRows.filter((p) => selected[rowKey(p.url)])
+    if (!toAdd.length) {
+      showMessage('Select at least one No Match product.', 'error')
+      return
+    }
+
+    setDrafting(true)
+    showMessage('')
+    try {
+      const res = await adminHttp.post('/api/admin/price-sync.php', {
+        action: 'add_drafts',
+        items: toAdd.map((p) => ({ url: p.url, species: selectedCat })),
+      })
+      const added = Array.isArray(res.data?.added) ? res.data.added : []
+      const addedUrls = new Set(added.map((item) => item.url))
+      setRows((prev) =>
+        prev.map((p) =>
+          addedUrls.has(p.url)
+            ? {
+                ...p,
+                status: 'draft_added',
+                product_id: added.find((item) => item.url === p.url)?.id,
+              }
+            : p
+        )
+      )
+      setSelected((prev) => {
+        const next = { ...prev }
+        addedUrls.forEach((url) => {
+          next[url] = false
+        })
+        return next
+      })
+      const errors = Array.isArray(res.data?.errors) ? res.data.errors : []
+      const errorDetails = errors
+        .map((item) => item.error)
+        .filter(Boolean)
+        .slice(0, 3)
+        .join('; ')
+      showMessage(
+        `${added.length} product(s) added as hidden drafts.${
+          errors.length
+            ? ` ${errors.length} could not be added.${errorDetails ? ` ${errorDetails}` : ''}`
+            : ''
+        }`,
+        added.length ? 'success' : 'error'
+      )
+    } catch (e) {
+      showMessage(e.response?.data?.error || 'Could not add selected drafts', 'error')
+    } finally {
+      setDrafting(false)
+    }
+  }
+
+  const isBusy = loading || applying || drafting
 
   return (
     <div className="space-y-6">
@@ -285,6 +344,13 @@ const PriceSync = () => {
             >
               {applying ? 'Applying…' : `Apply selected (${selectedCount})`}
             </button>
+            <button
+              onClick={addSelectedDrafts}
+              disabled={isBusy || selectedDraftCount === 0}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold disabled:opacity-60"
+            >
+              {drafting ? 'Adding drafts…' : `Add selected No Match as drafts (${selectedDraftCount})`}
+            </button>
           </div>
 
           <div className="bg-white rounded-lg shadow divide-y divide-gray-100">
@@ -292,6 +358,7 @@ const PriceSync = () => {
               const meta = STATUS_META[p.status] || STATUS_META.no_match
               const selectable =
                 (p.status === 'matched' || p.status === 'matched_simple') && p.updatable_count > 0
+              const draftable = p.status === 'no_match' && p.can_add_draft
               return (
                 <div key={p.url} className="p-4">
                   <div className="flex items-start gap-3">
@@ -302,7 +369,7 @@ const PriceSync = () => {
                       onChange={(e) =>
                         setSelected((prev) => ({ ...prev, [rowKey(p.url)]: e.target.checked }))
                       }
-                      disabled={isBusy || !selectable}
+                      disabled={isBusy || (!selectable && !draftable)}
                     />
                     {p.image ? (
                       <img
@@ -333,6 +400,10 @@ const PriceSync = () => {
                         </a>
                       </div>
 
+                      {p.name_note && (
+                        <div className="text-xs text-amber-700 mt-1">{p.name_note}</div>
+                      )}
+
                       {(p.status === 'matched' || p.status === 'matched_simple') && (
                         <div className="text-sm text-gray-600 mt-1">
                           → <span className="font-medium">{p.product_name}</span>{' '}
@@ -357,10 +428,22 @@ const PriceSync = () => {
                         </div>
                       )}
 
-                      {p.status === 'no_match' && p.external_sizes?.length > 0 && (
+                      {p.status === 'no_match' && (
                         <div className="text-sm text-gray-500 mt-1">
-                          {p.external_sizes.length} size(s) on source · no product in your catalog
-                          matched this name.
+                          {p.external_sizes?.length > 0 && (
+                            <>{p.external_sizes.length} size(s) on source · </>
+                          )}
+                          no product in your catalog matched this name (species + size must match).
+                          {p.candidates?.length > 0 && (
+                            <div className="mt-1 text-xs text-gray-400">
+                              Closest in your catalog:{' '}
+                              {p.candidates.map((c) => `${c.name} (#${c.id})`).join(', ')}
+                            </div>
+                          )}
+                          <div className="mt-1 text-xs text-amber-700">
+                            Select this row and click &quot;Add selected No Match as drafts&quot; to
+                            create a hidden product for review.
+                          </div>
                         </div>
                       )}
 

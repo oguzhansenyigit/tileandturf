@@ -8,9 +8,13 @@ import { saveCartLead } from '../utils/saveCartLead'
 
 const Checkout = () => {
   const navigate = useNavigate()
-  const { cart, getCartTotal, clearCart } = useCart()
+  const { cart, getCartTotal, clearCart, addToCartSilently } = useCart()
   const orderPlacedRef = useRef(false)
   const checkoutTrackedRef = useRef(false)
+  // Google Merchant checkout link support: /checkout?item_id={id}
+  const [importingItem, setImportingItem] = useState(() =>
+    new URLSearchParams(window.location.search).has('item_id')
+  )
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -28,9 +32,46 @@ const Checkout = () => {
   const [shippingCost, setShippingCost] = useState(null)
 
   useEffect(() => {
+    // Google Merchant sends shoppers to /checkout?item_id={id}; add that
+    // product to the cart before the empty-cart redirect can kick in.
+    const params = new URLSearchParams(window.location.search)
+    const itemId = params.get('item_id')
+    if (!itemId) return
+
+    let cancelled = false
+    const importItem = async () => {
+      try {
+        const numericId = parseInt(itemId, 10)
+        if (Number.isFinite(numericId) && numericId > 0) {
+          const alreadyInCart = cart.some((item) => parseInt(item.id, 10) === numericId)
+          if (!alreadyInCart) {
+            const res = await axios.get(`/api/products.php?id=${numericId}`)
+            if (!cancelled && res.data && res.data.id) {
+              await addToCartSilently({ ...res.data, quantity: 1 })
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Could not add merchant item to cart:', e)
+      } finally {
+        if (!cancelled) {
+          setImportingItem(false)
+          // Drop the param so refreshes don't re-add the product
+          window.history.replaceState({}, '', '/checkout')
+        }
+      }
+    }
+    importItem()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
     // Give cart state a moment to catch up after Quick Checkout navigation.
     // Also accept a freshly written localStorage cart before bouncing to /cart.
-    if (cart.length > 0 || orderPlacedRef.current || loading) return
+    if (cart.length > 0 || orderPlacedRef.current || loading || importingItem) return
 
     const t = setTimeout(() => {
       if (orderPlacedRef.current || loading) return
@@ -50,7 +91,7 @@ const Checkout = () => {
     }, 450)
 
     return () => clearTimeout(t)
-  }, [cart, navigate, loading])
+  }, [cart, navigate, loading, importingItem])
 
   useEffect(() => {
     if (cart.length > 0 && !checkoutTrackedRef.current) {

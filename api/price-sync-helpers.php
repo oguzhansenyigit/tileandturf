@@ -296,8 +296,10 @@ function tileandturf_ps_dimension($name) {
 
 function tileandturf_ps_grade($name) {
     $n = tileandturf_ps_norm_name($name);
+    // Tolerate the common "platinium" misspelling used in some product names.
+    $n = str_replace('platinium', 'platinum', $n);
     $grades = [];
-    foreach (['platinum', 'extra', 'wall panel'] as $g) {
+    foreach (['platinum', 'extra', 'plus', 'wall panel'] as $g) {
         if (strpos($n, $g) !== false) {
             $grades[] = str_replace(' ', '', $g);
         }
@@ -308,6 +310,42 @@ function tileandturf_ps_grade($name) {
 
 function tileandturf_ps_signature($name) {
     return tileandturf_ps_species($name) . '|' . tileandturf_ps_grade($name) . '|' . tileandturf_ps_dimension($name);
+}
+
+/**
+ * Product name derived from the URL slug. Source page titles are hand-written
+ * marketing copy and are sometimes wrong (e.g. the 5/4x4 page titled "1x6 Plus"),
+ * so the slug is the authoritative identity for matching.
+ */
+function tileandturf_ps_name_from_url($url) {
+    $path = parse_url($url, PHP_URL_PATH);
+    if (!$path) {
+        return '';
+    }
+    $slug = strtolower(trim(basename(rtrim($path, '/'))));
+    if ($slug === '' || $slug === 'product') {
+        return '';
+    }
+    $name = str_replace('-', ' ', $slug);
+    // Restore fractional dimensions: "5 4x4" -> "5/4x4"
+    $name = preg_replace('/\b(\d+) (\d+x\d+)\b/', '$1/$2', $name);
+    return trim($name);
+}
+
+/** Remove source-store marketing text before creating a local draft. */
+function tileandturf_ps_draft_name($name) {
+    $name = trim(html_entity_decode((string) $name, ENT_QUOTES));
+    $name = preg_replace('/^\s*shop\s+/i', '', $name);
+    $name = preg_replace('/\s*[-–—]\s*free\s+shipping.*$/i', '', $name);
+    $name = preg_replace('/\s+/', ' ', $name);
+    return trim($name);
+}
+
+function tileandturf_ps_slugify($name) {
+    $slug = strtolower(tileandturf_ps_norm_name($name));
+    $slug = str_replace('/', '-', $slug);
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+    return trim($slug, '-');
 }
 
 /* ------------------------------------------------------------------ */
@@ -374,16 +412,28 @@ function tileandturf_ps_db_length_prices($variationsJson) {
  * Given an external product (parsed), build a preview against DB products.
  * Returns preview payload for the UI.
  */
-function tileandturf_ps_build_preview($conn, $external, $species) {
-    $signature = tileandturf_ps_signature($external['name']);
-    $extSpecies = tileandturf_ps_species($external['name']);
+function tileandturf_ps_build_preview($conn, $external, $species, $url = '') {
+    // Match on the URL slug when it contains a size; page titles are unreliable.
+    $matchName = $external['name'];
+    $nameNote = null;
+    $slugName = $url !== '' ? tileandturf_ps_name_from_url($url) : '';
+    if ($slugName !== '' && tileandturf_ps_dimension($slugName) !== '') {
+        if (tileandturf_ps_signature($slugName) !== tileandturf_ps_signature($external['name'])) {
+            $nameNote = 'Source page title does not match its URL; matched by URL instead.';
+        }
+        $matchName = $slugName;
+    }
+
+    $signature = tileandturf_ps_signature($matchName);
+    $extSpecies = tileandturf_ps_species($matchName);
     if ($extSpecies === '') {
         $extSpecies = $species;
-        $signature = $extSpecies . '|' . tileandturf_ps_grade($external['name']) . '|' . tileandturf_ps_dimension($external['name']);
+        $signature = $extSpecies . '|' . tileandturf_ps_grade($matchName) . '|' . tileandturf_ps_dimension($matchName);
     }
 
     $preview = [
-        'name' => $external['name'],
+        'name' => $nameNote !== null ? strtoupper($matchName) : $external['name'],
+        'name_note' => $nameNote,
         'image' => $external['image'],
         'signature' => $signature,
         'base_price' => $external['base_price'],
@@ -409,7 +459,7 @@ function tileandturf_ps_build_preview($conn, $external, $species) {
         return $preview;
     }
 
-    $dimension = tileandturf_ps_dimension($external['name']);
+    $dimension = tileandturf_ps_dimension($matchName);
     if ($dimension === '') {
         $preview['status'] = 'no_dimension';
         return $preview;
@@ -428,6 +478,7 @@ function tileandturf_ps_build_preview($conn, $external, $species) {
 
     if (count($matches) === 0) {
         $preview['status'] = 'no_match';
+        $preview['can_add_draft'] = true;
         return $preview;
     }
     if (count($matches) > 1) {
@@ -485,6 +536,138 @@ function tileandturf_ps_build_preview($conn, $external, $species) {
     }
 
     return $preview;
+}
+
+/**
+ * Create a hidden draft product from a source URL. Only no-match products may be
+ * inserted; duplicate signatures are rejected regardless of visibility or status.
+ */
+function tileandturf_ps_add_draft($conn, $url, $fallbackSpecies = '') {
+    if (!tileandturf_ps_is_allowed_url($url)) {
+        return ['success' => false, 'error' => 'URL not allowed', 'url' => $url];
+    }
+
+    $html = tileandturf_ps_http_get($url);
+    if ($html === null) {
+        return ['success' => false, 'error' => 'Could not fetch product page', 'url' => $url];
+    }
+
+    $external = tileandturf_ps_parse_product_page($html);
+    $name = tileandturf_ps_draft_name($external['name']);
+    // Trust the URL slug over the page title when they disagree on the size.
+    $slugName = tileandturf_ps_name_from_url($url);
+    if ($slugName !== '' && tileandturf_ps_dimension($slugName) !== '' &&
+        tileandturf_ps_signature($slugName) !== tileandturf_ps_signature($name)) {
+        $name = strtoupper($slugName);
+    }
+    $species = tileandturf_ps_species($name);
+    if ($species === '') {
+        $species = strtolower(trim((string) $fallbackSpecies));
+    }
+    $dimension = tileandturf_ps_dimension($name);
+    if ($name === '' || $species === '' || $dimension === '') {
+        return ['success' => false, 'error' => 'Product name, species, or size is missing', 'url' => $url];
+    }
+    if ($external['base_price'] === null && empty($external['length_prices'])) {
+        return ['success' => false, 'error' => 'No source price found', 'url' => $url];
+    }
+
+    $signature = $species . '|' . tileandturf_ps_grade($name) . '|' . $dimension;
+    $allCandidates = tileandturf_db_fetch_all(
+        $conn,
+        'SELECT id, name FROM products WHERE LOWER(name) LIKE ?',
+        's',
+        '%' . $species . '%'
+    );
+    foreach ($allCandidates as $candidate) {
+        if (tileandturf_ps_signature($candidate['name']) === $signature) {
+            return [
+                'success' => false,
+                'error' => 'A product with the same species, grade, and size already exists',
+                'product_id' => intval($candidate['id']),
+                'url' => $url,
+            ];
+        }
+    }
+
+    $category = tileandturf_db_fetch_one(
+        $conn,
+        'SELECT id FROM categories WHERE LOWER(slug) = ? OR LOWER(name) = ? ORDER BY id LIMIT 1',
+        'ss',
+        $species,
+        $species
+    );
+    $categoryId = $category ? intval($category['id']) : null;
+
+    $variations = null;
+    if (!empty($external['length_prices'])) {
+        $lengthOptions = [];
+        foreach ($external['length_prices'] as $length => $price) {
+            $key = (string) intval($length);
+            $lengthOptions[$key] = ['value' => $key, 'price' => round(floatval($price), 2)];
+        }
+        $variations = json_encode(['1' => $lengthOptions], JSON_UNESCAPED_SLASHES);
+    }
+
+    $basePrice = $external['base_price'] !== null
+        ? round(floatval($external['base_price']), 2)
+        : round(min($external['length_prices']), 2);
+    $baseSlug = tileandturf_ps_slugify($name);
+    if ($baseSlug === '') {
+        return ['success' => false, 'error' => 'Could not create product slug', 'url' => $url];
+    }
+    $slug = $baseSlug;
+    $suffix = 2;
+    while (tileandturf_db_fetch_one($conn, 'SELECT id FROM products WHERE slug = ? LIMIT 1', 's', $slug)) {
+        $slug = $baseSlug . '-' . $suffix;
+        $suffix++;
+    }
+
+    $description = 'Draft imported by Price Sync. Review product details, stock, images, and pricing before activation.';
+    $image = (string) ($external['image'] ?? '');
+    // This project publishes products through is_hidden. Keep the row active so
+    // Product Management can publish it later by unchecking "Hide Product".
+    $status = 'active';
+    $isHidden = 1;
+    $stock = 0;
+    $catalogMode = 'no';
+    $stmt = $conn->prepare(
+        'INSERT INTO products (name, slug, description, price, image, category_id, stock, variations, catalog_mode, status, is_hidden)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    );
+    if (!$stmt) {
+        return ['success' => false, 'error' => 'Could not prepare draft insert', 'url' => $url];
+    }
+    $stmt->bind_param(
+        'sssdsiisssi',
+        $name,
+        $slug,
+        $description,
+        $basePrice,
+        $image,
+        $categoryId,
+        $stock,
+        $variations,
+        $catalogMode,
+        $status,
+        $isHidden
+    );
+    if (!$stmt->execute()) {
+        $error = $stmt->error;
+        $stmt->close();
+        return ['success' => false, 'error' => 'Draft insert failed: ' . $error, 'url' => $url];
+    }
+    $productId = $stmt->insert_id;
+    $stmt->close();
+
+    return [
+        'success' => true,
+        'id' => intval($productId),
+        'name' => $name,
+        'slug' => $slug,
+        'status' => 'hidden_draft',
+        'url' => $url,
+    ];
 }
 
 /**

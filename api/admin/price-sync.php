@@ -93,7 +93,7 @@ if ($method === 'POST') {
         }
 
         $external = tileandturf_ps_parse_product_page($html);
-        $preview = tileandturf_ps_build_preview($conn, $external, $species);
+        $preview = tileandturf_ps_build_preview($conn, $external, $species, $url);
         $preview['url'] = $url;
 
         echo json_encode(['success' => true, 'preview' => $preview]);
@@ -135,6 +135,50 @@ if ($method === 'POST') {
             'results' => $results,
             'errors' => $errors,
             'message' => "Applied to " . count($results) . " product(s); {$updated} changed.",
+        ]);
+        exit();
+    }
+
+    if ($action === 'add_drafts') {
+        if (!tileandturf_rate_limit_allowed('price_sync_add_drafts', 50, 300)) {
+            http_response_code(429);
+            echo json_encode(['success' => false, 'error' => 'Too many requests. Slow down.']);
+            exit();
+        }
+
+        $items = $data['items'] ?? [];
+        if (!is_array($items) || count($items) === 0) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'No products selected']);
+            exit();
+        }
+        if (count($items) > 25) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Select at most 25 products at once']);
+            exit();
+        }
+
+        $added = [];
+        $errors = [];
+        foreach ($items as $item) {
+            $url = is_array($item) ? ($item['url'] ?? '') : '';
+            $species = is_array($item) ? ($item['species'] ?? '') : '';
+            $result = tileandturf_ps_add_draft($conn, $url, $species);
+            if (!empty($result['success'])) {
+                $added[] = $result;
+            } else {
+                $errors[] = [
+                    'url' => $url,
+                    'error' => $result['error'] ?? 'Could not add draft',
+                ];
+            }
+        }
+
+        echo json_encode([
+            'success' => count($added) > 0,
+            'added' => $added,
+            'errors' => $errors,
+            'message' => count($added) . ' product(s) added as hidden drafts.',
         ]);
         exit();
     }
