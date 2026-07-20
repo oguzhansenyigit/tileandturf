@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import { useWhatsApp } from '../hooks/useWhatsApp'
@@ -65,6 +65,7 @@ const stripHtmlToPlain = (html) =>
 
 const ProductDetail = () => {
   const { slug } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,6 +83,8 @@ const ProductDetail = () => {
   const [sqft, setSqft] = useState('')
   const [length, setLength] = useState(null)
   const [lengthInput, setLengthInput] = useState('')
+  const [measureError, setMeasureError] = useState('')
+  const [measureHint, setMeasureHint] = useState('')
   const [productDetailPromo, setProductDetailPromo] = useState(null)
   const [categoryPDFs, setCategoryPDFs] = useState({ datasheet_pdf: null, brochure_pdf: null })
   const { addToCart, addToCartSilently } = useCart()
@@ -90,6 +93,23 @@ const ProductDetail = () => {
   useEffect(() => {
     fetchProduct()
   }, [slug])
+
+  useEffect(() => {
+    const need = searchParams.get('need_measure')
+    if (need === 'sqft') {
+      setMeasureHint('Please enter square feet (sqft) before adding this product to your cart.')
+    } else if (need === 'length') {
+      setMeasureHint('Please enter length before adding this product to your cart.')
+    } else if (need === '1' || need === 'true') {
+      setMeasureHint('Please enter sqft or length before adding this product to your cart.')
+    } else {
+      setMeasureHint('')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    if (sqft !== '' || length) setMeasureError('')
+  }, [sqft, length])
 
   useEffect(() => {
     return () => setLiveProductId(null)
@@ -322,6 +342,7 @@ const ProductDetail = () => {
       setLength(null)
       setLengthInput('')
       setSqft('')
+      setMeasureError('')
 
       if (productData?.id) {
         trackPageView({
@@ -508,14 +529,18 @@ const ProductDetail = () => {
     
     // Validate sqft or length if enabled
     if (isSqftEnabled && (sqft === '' || sqft === null || isNaN(sqft) || sqft <= 0)) {
-      alert('Please enter a valid square feet value.')
+      setMeasureError('Please enter square feet (sqft) before continuing.')
+      alert('Please enter square feet (sqft) before continuing.')
       return
     }
     
     if (isLengthEnabled && (!length || length === null || length === '' || length <= 0)) {
-      alert('Please enter a valid length value.')
+      setMeasureError('Please enter length before continuing.')
+      alert('Please enter length before continuing.')
       return
     }
+
+    setMeasureError('')
     
     let finalPrice = calculateFinalPrice()
     
@@ -598,14 +623,18 @@ const ProductDetail = () => {
     const isLengthEnabled = product.length_enabled == 1 || product.length_enabled === true
     
     if (isSqftEnabled && (sqft === '' || sqft === null || isNaN(sqft) || sqft <= 0)) {
-      alert('Please enter a valid square feet value.')
+      setMeasureError('Please enter square feet (sqft) before continuing.')
+      alert('Please enter square feet (sqft) before continuing.')
       return
     }
     
     if (isLengthEnabled && (!length || length === null || length === '' || length <= 0)) {
-      alert('Please enter a valid length value.')
+      setMeasureError('Please enter length before continuing.')
+      alert('Please enter length before continuing.')
       return
     }
+
+    setMeasureError('')
     
     let finalPrice = calculateFinalPrice()
     
@@ -1061,6 +1090,18 @@ const ProductDetail = () => {
           />
 
 
+          {(measureHint || measureError) && (
+            <div
+              className={`mb-4 rounded-lg border-l-4 p-3 text-sm font-semibold ${
+                measureError
+                  ? 'border-red-500 bg-red-50 text-red-800'
+                  : 'border-amber-500 bg-amber-50 text-amber-900'
+              }`}
+            >
+              {measureError || measureHint}
+            </div>
+          )}
+
           {/* Sqft Input - Only show if sqft_enabled */}
           {(product.sqft_enabled == 1 || product.sqft_enabled === true) && (
             <div className="mb-6">
@@ -1076,9 +1117,16 @@ const ProductDetail = () => {
                 }}
                 step="0.01"
                 min="0"
-                className="w-full border border-gray-300 rounded-lg px-4 py-2 font-semibold"
+                className={`w-full rounded-lg px-4 py-2 font-semibold border ${
+                  measureError ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Enter sqft"
+                required
               />
+              <p className="text-xs text-gray-500 mt-1">Required — enter the area in square feet.</p>
+              {measureError && (
+                <p className="text-red-600 text-sm font-semibold mt-1">{measureError}</p>
+              )}
               {product.sqft_price && sqft !== '' && !isNaN(sqft) && sqft > 0 && (() => {
                 const hasSelectedVariations = Object.keys(selectedVariations).length > 0
                 let pricePerSqft = parseFloat(product.sqft_price) || 0
@@ -1143,9 +1191,16 @@ const ProductDetail = () => {
                   }
                 }}
                 min="1"
-                className="w-24 border border-gray-300 rounded-lg px-3 py-2 font-semibold"
+                className={`w-24 rounded-lg px-3 py-2 font-semibold border ${
+                  measureError ? 'border-red-500' : 'border-gray-300'
+                }`}
                 placeholder="Enter length"
+                required
               />
+              <p className="text-xs text-gray-500 mt-1">Required — enter length before adding to cart.</p>
+              {measureError && (
+                <p className="text-red-600 text-sm font-semibold mt-1">{measureError}</p>
+              )}
               {product.length_base_price && product.length_increment_price && length && (
                 <p className="text-sm text-gray-600 mt-1">
                   Base:{' '}

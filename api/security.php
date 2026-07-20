@@ -187,6 +187,9 @@ function tileandturf_public_settings_keys() {
         'product_detail_promo_content',
         'product_detail_promo_status',
         'home_suggestions_status',
+        'google_ads_status',
+        'google_ads_tag_id',
+        'google_ads_purchase_label',
     ];
 }
 

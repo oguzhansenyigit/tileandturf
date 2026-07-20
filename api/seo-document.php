@@ -113,15 +113,6 @@ function tileandturf_inject_jsonld(string &$html, string $origin): void
                     'Outdoor flooring',
                     'Rooftop deck systems',
                 ],
-                'makesOffer' => [
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'Porcelain Pavers']],
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'IPE Wood Tile']],
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'Brazilian Hardwood Decking (IPE, Cumaru, Tigerwood, Jatoba, Garapa)']],
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'Synthetic Turf']],
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'Green Roof Systems']],
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'Concrete Pavers']],
-                    ['@type' => 'Offer', 'itemOffered' => ['@type' => 'Product', 'name' => 'Adjustable Paver Pedestal Systems']],
-                ],
             ],
             [
                 '@type' => 'WebSite',

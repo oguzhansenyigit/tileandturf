@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import ShippingCalculator from '../components/ShippingCalculator'
@@ -43,11 +43,24 @@ const Checkout = () => {
       try {
         const numericId = parseInt(itemId, 10)
         if (Number.isFinite(numericId) && numericId > 0) {
-          const alreadyInCart = cart.some((item) => parseInt(item.id, 10) === numericId)
-          if (!alreadyInCart) {
-            const res = await axios.get(`/api/products.php?id=${numericId}`)
-            if (!cancelled && res.data && res.data.id) {
-              await addToCartSilently({ ...res.data, quantity: 1 })
+          const res = await axios.get(`/api/products.php?id=${numericId}`)
+          const product = res.data
+          if (!cancelled && product?.id) {
+            const needsSqft = product.sqft_enabled == 1 || product.sqft_enabled === true
+            const needsLength = product.length_enabled == 1 || product.length_enabled === true
+            // Sqft/length products cannot be priced without a measure — send shopper
+            // to the product page instead of creating a cart line that fails at Place Order.
+            if (needsSqft || needsLength) {
+              const slug = product.slug || product.id
+              const need = needsSqft ? 'sqft' : 'length'
+              window.location.replace(
+                `/product/${encodeURIComponent(slug)}?need_measure=${need}`
+              )
+              return
+            }
+            const alreadyInCart = cart.some((item) => parseInt(item.id, 10) === numericId)
+            if (!alreadyInCart) {
+              await addToCartSilently({ ...product, quantity: 1 })
             }
           }
         }
@@ -146,10 +159,29 @@ const Checkout = () => {
     return Object.keys(newErrors).length === 0
   }
 
+  const cartLineNeedsMeasure = (item) => {
+    if (!item || item.is_gift) return false
+    const needsSqft = item.sqft_enabled == 1 || item.sqft_enabled === true
+    const needsLength = item.length_enabled == 1 || item.length_enabled === true
+    if (needsSqft && !(parseFloat(item.sqft) > 0)) return true
+    if (needsLength && !(parseInt(item.length, 10) > 0)) return true
+    return false
+  }
+
+  const incompleteMeasureItems = cart.filter(cartLineNeedsMeasure)
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     
     if (!validateForm()) {
+      return
+    }
+
+    if (incompleteMeasureItems.length > 0) {
+      const names = incompleteMeasureItems.map((item) => item.name || `Product #${item.id}`).join(', ')
+      alert(
+        `Please enter sqft or length for: ${names}. Open the product page, enter the required measure, then add to cart again.`
+      )
       return
     }
 
@@ -199,7 +231,8 @@ const Checkout = () => {
       }
     } catch (error) {
       console.error('Error submitting order:', error)
-      alert('Error placing order. Please try again.')
+      const serverError = error.response?.data?.error
+      alert(serverError ? `Error placing order: ${serverError}` : 'Error placing order. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -413,10 +446,33 @@ const Checkout = () => {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Order Summary</h2>
+            {incompleteMeasureItems.length > 0 && (
+              <div className="mb-4 rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-bold mb-1">Sqft / length required</p>
+                <p className="mb-2">
+                  Enter square feet or length on the product page before placing this order:
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {incompleteMeasureItems.map((item) => (
+                    <li key={`need-${item.id}`}>
+                      <Link
+                        to={`/product/${encodeURIComponent(item.slug || item.id)}?need_measure=${
+                          item.sqft_enabled == 1 || item.sqft_enabled === true ? 'sqft' : 'length'
+                        }`}
+                        className="font-semibold underline"
+                      >
+                        {item.name || `Product #${item.id}`}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="space-y-4 mb-6">
               {cart.map((item) => {
                 let lineTotal = (parseFloat(item.price) || 0) * (parseInt(item.quantity) || 0)
                 let label = `${item.name} x${item.quantity}`
+                const needsMeasure = cartLineNeedsMeasure(item)
                 if (item.sqft && item.sqft_price) {
                   lineTotal = parseFloat(item.sqft) * parseFloat(item.sqft_price)
                   label = `${item.name} (${item.sqft} sqft)`
@@ -425,11 +481,17 @@ const Checkout = () => {
                     parseFloat(item.length_base_price) +
                     ((parseInt(item.length) - 1) * parseFloat(item.length_increment_price))
                   label = `${item.name} (length: ${item.length})`
+                } else if (needsMeasure) {
+                  label = `${item.name} — enter sqft/length`
                 }
                 return (
                   <div key={`${item.id}_${item.sqft || 0}_${item.length || 0}`} className="flex justify-between text-sm">
-                    <span className="text-gray-600">{label}</span>
-                    <span className="font-semibold">${lineTotal.toFixed(2)}</span>
+                    <span className={needsMeasure ? 'text-amber-800 font-semibold' : 'text-gray-600'}>
+                      {label}
+                    </span>
+                    <span className="font-semibold">
+                      {needsMeasure ? '—' : `$${lineTotal.toFixed(2)}`}
+                    </span>
                   </div>
                 )
               })}
@@ -472,10 +534,14 @@ const Checkout = () => {
             
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || incompleteMeasureItems.length > 0}
               className="w-full bg-primary hover:bg-primary-dark text-white py-3 px-6 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Processing...' : 'Place Order'}
+              {loading
+                ? 'Processing...'
+                : incompleteMeasureItems.length > 0
+                ? 'Enter sqft / length to continue'
+                : 'Place Order'}
             </button>
           </div>
         </div>

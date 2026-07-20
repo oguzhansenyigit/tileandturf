@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import { useWhatsApp } from '../hooks/useWhatsApp'
+import { trackGoogleAdsPurchase } from '../utils/googleAds'
 
 const OrderConfirmation = () => {
   const { orderId } = useParams()
@@ -77,6 +78,15 @@ const OrderConfirmation = () => {
 
     fetchOrder()
   }, [orderId, searchParams])
+
+  useEffect(() => {
+    if (!order?.id) return
+    trackGoogleAdsPurchase({
+      transactionId: order.order_number || `ORD-${order.id}`,
+      value: parseFloat(order.total) || 0,
+      currency: 'USD',
+    })
+  }, [order])
 
   const handleSendEmail = async () => {
     if (!order || !order.email) return

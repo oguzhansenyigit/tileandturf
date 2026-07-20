@@ -22,6 +22,13 @@ function tileandturf_format_measure($value) {
     return rtrim(rtrim($s, '0'), '.');
 }
 
+function tileandturf_first_int_from_value($value) {
+    if (preg_match('/\d+/', (string) $value, $m)) {
+        return intval($m[0]);
+    }
+    return null;
+}
+
 function tileandturf_fetch_product_for_pricing($conn, $productId) {
     $id = intval($productId);
     if ($id <= 0) {
@@ -108,6 +115,16 @@ function tileandturf_resolve_order_line($conn, $cartItem) {
 
     if ($lengthEnabled) {
         $length = max(0, intval($cartItem['length'] ?? 0));
+        // Fall back to a numeric length chosen via variation options (e.g. "8", "12 ft").
+        if ($length <= 0 && !empty($cartItem['selectedVariations']) && is_array($cartItem['selectedVariations'])) {
+            foreach ($cartItem['selectedVariations'] as $optionKey) {
+                $n = tileandturf_first_int_from_value($optionKey);
+                if ($n !== null && $n > 0) {
+                    $length = $n;
+                    break;
+                }
+            }
+        }
         if ($length <= 0) {
             return null;
         }

@@ -5,6 +5,7 @@ const SettingsManagement = () => {
   const [settings, setSettings] = useState({})
   const [loading, setLoading] = useState(true)
   const [savingHomeSuggest, setSavingHomeSuggest] = useState(false)
+  const [savingGoogleAds, setSavingGoogleAds] = useState(false)
   const [topBanner, setTopBanner] = useState({
     text: '',
     is_active: true
@@ -14,6 +15,11 @@ const SettingsManagement = () => {
     is_active: true
   })
   const [homeSuggestionsOn, setHomeSuggestionsOn] = useState(true)
+  const [googleAds, setGoogleAds] = useState({
+    enabled: false,
+    tagId: 'AW-17685411407',
+    purchaseLabel: 'rE8dCIiSnJYcEM_sh_FB',
+  })
 
   useEffect(() => {
     fetchSettings()
@@ -36,6 +42,11 @@ const SettingsManagement = () => {
       })
       // Default ON when setting has never been saved
       setHomeSuggestionsOn(data.home_suggestions_status !== 'inactive')
+      setGoogleAds({
+        enabled: data.google_ads_status === 'active',
+        tagId: data.google_ads_tag_id || 'AW-17685411407',
+        purchaseLabel: data.google_ads_purchase_label || 'rE8dCIiSnJYcEM_sh_FB',
+      })
     } catch (error) {
       console.error('Error fetching settings:', error)
       setSettings({})
@@ -87,6 +98,35 @@ const SettingsManagement = () => {
       alert('Could not save setting. Please try again.')
     } finally {
       setSavingHomeSuggest(false)
+    }
+  }
+
+  const handleSaveGoogleAds = async () => {
+    const tagId = googleAds.tagId.trim()
+    const purchaseLabel = googleAds.purchaseLabel.trim()
+    if (!/^AW-\d+$/.test(tagId)) {
+      alert('Google Ads Tag ID must look like AW-17685411407.')
+      return
+    }
+    if (!/^[A-Za-z0-9_-]+$/.test(purchaseLabel)) {
+      alert('Purchase conversion label contains invalid characters.')
+      return
+    }
+
+    setSavingGoogleAds(true)
+    try {
+      await axios.post('/api/admin/settings.php', {
+        google_ads_status: googleAds.enabled ? 'active' : 'inactive',
+        google_ads_tag_id: tagId,
+        google_ads_purchase_label: purchaseLabel,
+      })
+      setGoogleAds((current) => ({ ...current, tagId, purchaseLabel }))
+      alert('Google Ads tracking settings saved. They will apply on the next page load.')
+    } catch (error) {
+      console.error('Error saving Google Ads settings:', error)
+      alert('Could not save Google Ads settings.')
+    } finally {
+      setSavingGoogleAds(false)
     }
   }
 
@@ -211,6 +251,82 @@ const SettingsManagement = () => {
           </span>
           {savingHomeSuggest ? ' · Saving…' : ''}
         </p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+          <div>
+            <h3 className="text-xl font-bold text-gray-800">Google Ads conversion tracking</h3>
+            <p className="text-sm text-gray-600 mt-1 max-w-2xl">
+              Loads the Google tag on every page and sends one purchase conversion from the order
+              confirmation page. Order total, USD currency, and transaction ID are sent dynamically.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={googleAds.enabled}
+            onClick={() => setGoogleAds((current) => ({ ...current, enabled: !current.enabled }))}
+            className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors ${
+              googleAds.enabled ? 'bg-primary' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+                googleAds.enabled ? 'translate-x-7' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">Google Ads Tag ID</label>
+            <input
+              type="text"
+              value={googleAds.tagId}
+              onChange={(e) => setGoogleAds((current) => ({ ...current, tagId: e.target.value }))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              placeholder="AW-17685411407"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">
+              Purchase conversion label
+            </label>
+            <input
+              type="text"
+              value={googleAds.purchaseLabel}
+              onChange={(e) =>
+                setGoogleAds((current) => ({ ...current, purchaseLabel: e.target.value }))
+              }
+              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              placeholder="rE8dCIiSnJYcEM_sh_FB"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <p>
+            Purchase destination:{' '}
+            <code className="font-semibold">
+              {googleAds.tagId || 'AW-…'}/{googleAds.purchaseLabel || 'label'}
+            </code>
+          </p>
+          <p className="mt-1">
+            Currency is fixed to <strong>USD</strong> because checkout prices are in USD. Do not use
+            the TRY value shown in Google&apos;s generic sample.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleSaveGoogleAds}
+          disabled={savingGoogleAds}
+          className="mt-5 bg-primary hover:bg-primary-dark text-white px-6 py-2 rounded-lg font-semibold transition-colors disabled:opacity-60"
+        >
+          {savingGoogleAds ? 'Saving…' : 'Save Google Ads Settings'}
+        </button>
       </div>
     </div>
   )

@@ -45,6 +45,7 @@ import {
   PRODUCTS_DESCRIPTION,
 } from './config/siteSeo'
 import { applyDocumentSeo } from './utils/documentSeo'
+import { initializeGoogleAds } from './utils/googleAds'
 
 const ROUTE_SEO = {
   '/': { title: HOME_TITLE, description: HOME_DESCRIPTION, keywords: HOME_KEYWORDS },
@@ -168,6 +169,7 @@ function App() {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual'
     }
+    initializeGoogleAds()
   }, [])
 
   return (
