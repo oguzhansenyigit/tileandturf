@@ -47,11 +47,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    tileandturf_ensure_orders_ip_column($conn);
+    $checkoutIp = tileandturf_client_ip();
+    $checkoutIp = ($checkoutIp !== '') ? substr((string) $checkoutIp, 0, 45) : '';
+
     $orderId = tileandturf_db_execute(
         $conn,
-        'INSERT INTO orders (order_number, first_name, last_name, email, phone, address, city, state, zip_code, country, total, payment_method)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        'ssssssssssds',
+        'INSERT INTO orders (order_number, first_name, last_name, email, phone, address, city, state, zip_code, country, total, payment_method, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'ssssssssssdss',
         $orderNumber,
         $firstName,
         $lastName,
@@ -63,14 +67,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $zipCode,
         $country,
         $total,
-        $paymentMethod
+        $paymentMethod,
+        $checkoutIp
     );
+
+    // Fallback if ip_address column could not be added on this host.
+    if ($orderId === false) {
+        $orderId = tileandturf_db_execute(
+            $conn,
+            'INSERT INTO orders (order_number, first_name, last_name, email, phone, address, city, state, zip_code, country, total, payment_method)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'ssssssssssds',
+            $orderNumber,
+            $firstName,
+            $lastName,
+            $email,
+            $phone,
+            $address,
+            $city,
+            $state,
+            $zipCode,
+            $country,
+            $total,
+            $paymentMethod
+        );
+    }
 
     if ($orderId !== false) {
         $sessionId = trim((string)($data['session_id'] ?? ''));
         require_once __DIR__ . '/analytics-helpers.php';
         tileandturf_analytics_ensure_tables($conn);
-        $ip = tileandturf_client_ip();
+        $ip = $checkoutIp ?: tileandturf_client_ip();
         if ($sessionId !== '') {
             tileandturf_funnel_record(
                 $conn,

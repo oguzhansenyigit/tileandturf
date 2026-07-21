@@ -44,6 +44,7 @@ if (!defined('TILEANDTURF_CRON_SECRET')) {
 
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/db-helpers.php';
+require_once __DIR__ . '/ip-block-helpers.php';
 
 if (!defined('TILEANDTURF_SKIP_JSON_HEADERS')) {
     header('Content-Type: application/json');
@@ -80,5 +81,9 @@ if (!$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME)) {
 }
 
 $conn->set_charset('utf8mb4');
+
+if (!defined('TILEANDTURF_SKIP_IP_BLOCK')) {
+    tileandturf_enforce_ip_block($conn);
+}
 
 ?>

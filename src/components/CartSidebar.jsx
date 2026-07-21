@@ -4,8 +4,6 @@ import { getProductUrl } from '../utils/slug'
 import { useCart } from '../context/CartContext'
 import axios from 'axios'
 import ShippingCalculator from './ShippingCalculator'
-import CartEmailReminder from './CartEmailReminder'
-
 const CartSidebar = ({ isOpen, onClose }) => {
   const { cart, removeFromCart, updateQuantity, getCartTotal, addToCart } = useCart()
   const [recommendedProducts, setRecommendedProducts] = useState([])
@@ -299,7 +297,6 @@ const CartSidebar = ({ isOpen, onClose }) => {
         {/* Footer - Sticky */}
         {cart.length > 0 && (
           <div className="border-t border-gray-200 p-4 bg-white flex-shrink-0">
-            <CartEmailReminder cart={cart} source="cart" compact />
             {/* Shipping Calculator */}
             <div className="mb-4">
               <label className="block text-xs font-semibold text-gray-700 mb-2">

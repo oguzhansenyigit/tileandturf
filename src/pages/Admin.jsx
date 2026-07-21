@@ -16,6 +16,7 @@ import AISeoAssistant from '../components/admin/AISeoAssistant'
 import CategoryManagement from '../components/admin/CategoryManagement'
 import PriceSync from '../components/admin/PriceSync'
 import TitleNormalizer from '../components/admin/TitleNormalizer'
+import IpBlockManagement from '../components/admin/IpBlockManagement'
 import OrderNotifications from '../components/admin/OrderNotifications'
 
 const Admin = () => {
@@ -142,6 +143,7 @@ const Admin = () => {
     { id: 'ai-seo', label: 'AI SEO Assistant', icon: '🤖' },
     { id: 'price-sync', label: 'Price Sync', icon: '💲' },
     { id: 'title-fixer', label: 'Title Fixer', icon: '🔤' },
+    { id: 'ip-block', label: 'Visitors / IP Block', icon: '🛡️' },
   ]
 
   return (
@@ -221,6 +223,7 @@ const Admin = () => {
           {activeSection === 'ai-seo' && <AISeoAssistant />}
           {activeSection === 'price-sync' && <PriceSync />}
           {activeSection === 'title-fixer' && <TitleNormalizer />}
+          {activeSection === 'ip-block' && <IpBlockManagement />}
         </main>
       </div>
     </div>
