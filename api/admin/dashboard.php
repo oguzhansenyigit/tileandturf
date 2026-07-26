@@ -282,9 +282,14 @@ try {
     // Prefer product-aware live rows; fall back if product_id column not yet migrated
     $lv = @$conn->query(
         "SELECT av.path, av.product_id, av.country, av.region_code, av.city, av.last_activity,
-                p.name AS product_name
+                p.name AS product_name,
+                va.channel AS traffic_channel,
+                va.utm_medium,
+                va.utm_source,
+                va.utm_campaign
          FROM active_visitors av
          LEFT JOIN products p ON p.id = av.product_id
+         LEFT JOIN visitor_attribution va ON BINARY va.session_id = BINARY av.session_id
          WHERE av.last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
          ORDER BY av.last_activity DESC
          LIMIT 25"
