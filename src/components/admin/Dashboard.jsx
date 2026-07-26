@@ -463,45 +463,58 @@ const Dashboard = () => {
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-          <h3 className="font-bold text-gray-800 mb-3">Live on site</h3>
+          <h3 className="font-bold text-gray-800 mb-1">Live on site</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Paid = Ads · Organic = Google search / free listings
+          </p>
           <p className="text-3xl font-bold text-orange-600 mb-3">{activeVisitors}</p>
           <div className="space-y-2 max-h-80 overflow-y-auto">
             {live.length === 0 ? (
               <p className="text-sm text-gray-500">No active sessions in the last 5 minutes.</p>
             ) : (
-              live.map((v, i) => (
-                <div key={i} className="text-xs border-b border-gray-50 pb-2">
-                  <div className="flex items-start justify-between gap-2 mb-0.5">
-                    <p className="font-medium text-gray-800 truncate">
-                      {v.product_name
-                        ? `Product: ${v.product_name}`
-                        : v.path || '/'}
-                    </p>
-                    {v.traffic_channel ? (
+              live.map((v, i) => {
+                const channel = String(v.traffic_channel || '').toLowerCase()
+                const label =
+                  channel === 'paid'
+                    ? 'Paid'
+                    : channel === 'organic'
+                      ? 'Organic'
+                      : channel === 'direct'
+                        ? 'Direct'
+                        : channel === 'referral'
+                          ? 'Referral'
+                          : channel === 'social'
+                            ? 'Social'
+                            : 'Unknown'
+                const badgeCls =
+                  channel === 'paid'
+                    ? 'bg-violet-100 text-violet-900'
+                    : channel === 'organic'
+                      ? 'bg-emerald-100 text-emerald-900'
+                      : 'bg-gray-100 text-gray-600'
+                return (
+                  <div key={i} className="text-xs border-b border-gray-50 pb-2">
+                    <div className="flex items-start justify-between gap-2 mb-0.5">
+                      <p className="font-medium text-gray-800 truncate">
+                        {v.product_name
+                          ? `Product: ${v.product_name}`
+                          : v.path || '/'}
+                      </p>
                       <span
-                        className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          v.traffic_channel === 'paid'
-                            ? 'bg-violet-100 text-violet-900'
-                            : v.traffic_channel === 'organic'
-                              ? 'bg-emerald-100 text-emerald-900'
-                              : 'bg-gray-100 text-gray-700'
-                        }`}
-                        title={[v.utm_source, v.utm_medium, v.utm_campaign].filter(Boolean).join(' / ')}
+                        className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${badgeCls}`}
+                        title={[v.utm_source, v.utm_medium, v.utm_campaign].filter(Boolean).join(' / ') || 'No attribution yet'}
                       >
-                        {v.traffic_channel === 'paid'
-                          ? 'Paid'
-                          : v.traffic_channel === 'organic'
-                            ? 'Organic'
-                            : v.traffic_channel}
+                        {label}
+                        {v.utm_medium ? ` · ${v.utm_medium}` : ''}
                       </span>
-                    ) : null}
+                    </div>
+                    <p className="text-gray-500 truncate">{v.path || '/'}</p>
+                    <p className="text-gray-500">
+                      {[v.city, v.region_code, v.country].filter(Boolean).join(', ') || 'Location unknown'}
+                    </p>
                   </div>
-                  <p className="text-gray-500 truncate">{v.path || '/'}</p>
-                  <p className="text-gray-500">
-                    {[v.city, v.region_code, v.country].filter(Boolean).join(', ') || 'Location unknown'}
-                  </p>
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>
