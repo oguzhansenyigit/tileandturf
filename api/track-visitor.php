@@ -1,10 +1,12 @@
 <?php
 require_once 'config.php';
 require_once __DIR__ . '/analytics-helpers.php';
+require_once __DIR__ . '/attribution-helpers.php';
 
 header('Content-Type: application/json');
 
 tileandturf_analytics_ensure_tables($conn);
+tileandturf_attribution_ensure_tables($conn);
 
 $ip = tileandturf_client_ip();
 $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
@@ -18,6 +20,10 @@ function tileandturf_sql_null_or_str($conn, $v) {
 }
 
 function tileandturf_live_payload($conn) {
+    if (function_exists('tileandturf_attribution_ensure_tables')) {
+        tileandturf_attribution_ensure_tables($conn);
+    }
+
     $countRes = $conn->query(
         "SELECT COUNT(*) AS count FROM active_visitors WHERE last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)"
     );
@@ -26,15 +32,23 @@ function tileandturf_live_payload($conn) {
     $live = [];
     $liveRes = @$conn->query(
         "SELECT av.session_id, av.path, av.product_id, av.country, av.region_code, av.city, av.last_activity,
-                p.name AS product_name
+                av.ip_address,
+                p.name AS product_name,
+                va.channel AS traffic_channel,
+                va.utm_medium,
+                va.utm_source,
+                va.utm_campaign
          FROM active_visitors av
          LEFT JOIN products p ON p.id = av.product_id
+         LEFT JOIN visitor_attribution va ON BINARY va.session_id = BINARY av.session_id
          WHERE av.last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
          ORDER BY av.last_activity DESC
          LIMIT 40"
     );
     if ($liveRes) {
         while ($row = $liveRes->fetch_assoc()) {
+            // Never expose raw IPs on the public live endpoint.
+            unset($row['ip_address']);
             $live[] = $row;
         }
     }
@@ -173,6 +187,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $isHeartbeat = !empty($data['heartbeat']);
 
     $isAdmin = strpos($path, '/admin') === 0;
+
+    // First-touch attribution (paid vs organic). Ignore heartbeats / admin.
+    if (!$isHeartbeat && !$isAdmin) {
+        $attrIn = is_array($data['attribution'] ?? null) ? $data['attribution'] : [];
+        if (empty($attrIn['referrer']) && $referrer !== '') {
+            $attrIn['referrer'] = $referrer;
+        }
+        if (empty($attrIn['landing_path'])) {
+            $attrIn['landing_path'] = $path;
+        }
+        tileandturf_attribution_save_first_touch($conn, $sessionId, $attrIn);
+    }
 
     $geo = tileandturf_geo_lookup($conn, $ip);
     $country = $geo['country'];

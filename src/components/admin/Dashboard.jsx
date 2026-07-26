@@ -471,11 +471,31 @@ const Dashboard = () => {
             ) : (
               live.map((v, i) => (
                 <div key={i} className="text-xs border-b border-gray-50 pb-2">
-                  <p className="font-medium text-gray-800 truncate">
-                    {v.product_name
-                      ? `Product: ${v.product_name}`
-                      : v.path || '/'}
-                  </p>
+                  <div className="flex items-start justify-between gap-2 mb-0.5">
+                    <p className="font-medium text-gray-800 truncate">
+                      {v.product_name
+                        ? `Product: ${v.product_name}`
+                        : v.path || '/'}
+                    </p>
+                    {v.traffic_channel ? (
+                      <span
+                        className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          v.traffic_channel === 'paid'
+                            ? 'bg-violet-100 text-violet-900'
+                            : v.traffic_channel === 'organic'
+                              ? 'bg-emerald-100 text-emerald-900'
+                              : 'bg-gray-100 text-gray-700'
+                        }`}
+                        title={[v.utm_source, v.utm_medium, v.utm_campaign].filter(Boolean).join(' / ')}
+                      >
+                        {v.traffic_channel === 'paid'
+                          ? 'Paid'
+                          : v.traffic_channel === 'organic'
+                            ? 'Organic'
+                            : v.traffic_channel}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="text-gray-500 truncate">{v.path || '/'}</p>
                   <p className="text-gray-500">
                     {[v.city, v.region_code, v.country].filter(Boolean).join(', ') || 'Location unknown'}

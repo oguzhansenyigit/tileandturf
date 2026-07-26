@@ -91,6 +91,34 @@ const OrderIpCell = ({ row, busyIp, onBlock }) => {
   )
 }
 
+const ChannelBadge = ({ channel, medium }) => {
+  const ch = String(channel || '').toLowerCase()
+  if (!ch) return <span className="text-xs text-gray-400">—</span>
+  const styles = {
+    paid: 'bg-violet-100 text-violet-900',
+    organic: 'bg-emerald-100 text-emerald-900',
+    direct: 'bg-gray-100 text-gray-700',
+    referral: 'bg-sky-100 text-sky-900',
+    social: 'bg-pink-100 text-pink-900',
+  }
+  const labels = {
+    paid: 'Paid',
+    organic: 'Organic',
+    direct: 'Direct',
+    referral: 'Referral',
+    social: 'Social',
+  }
+  return (
+    <span
+      className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${styles[ch] || 'bg-gray-100 text-gray-700'}`}
+      title={medium ? `utm_medium=${medium}` : ''}
+    >
+      {labels[ch] || ch}
+      {medium ? ` · ${medium}` : ''}
+    </span>
+  )
+}
+
 const BuyerBadge = ({ row }) => {
   if (!row?.is_buyer) return null
   const recent = Number(row.recent_order_count) > 0
@@ -328,6 +356,7 @@ const IpBlockManagement = () => {
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">When</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Order</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Customer</th>
+                  <th className="px-4 py-2 text-left font-semibold text-gray-700">Source</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">IP</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Total</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Note</th>
@@ -341,6 +370,9 @@ const IpBlockManagement = () => {
                     <td className="px-4 py-2">
                       <div className="font-semibold text-gray-800">{row.buyer_name || '—'}</div>
                       <div className="text-xs text-gray-500">{row.buyer_email || ''}</div>
+                    </td>
+                    <td className="px-4 py-2">
+                      <ChannelBadge channel={row.traffic_channel} medium={row.utm_medium} />
                     </td>
                     <td className="px-4 py-2">
                       <OrderIpCell row={row} busyIp={busyIp} onBlock={blockIp} />
@@ -400,6 +432,7 @@ const IpBlockManagement = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">IP</th>
+                  <th className="px-4 py-2 text-left font-semibold text-gray-700">Source</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">City</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Page</th>
                   <th className="px-4 py-2 text-left font-semibold text-gray-700">Active</th>
@@ -415,6 +448,9 @@ const IpBlockManagement = () => {
                         <BuyerBadge row={row} />
                       </div>
                       <BuyerDetails row={row} />
+                    </td>
+                    <td className="px-4 py-2">
+                      <ChannelBadge channel={row.traffic_channel} medium={row.utm_medium} />
                     </td>
                     <td className="px-4 py-2">{locationLabel(row)}</td>
                     <td className="px-4 py-2 text-gray-600 max-w-[14rem] truncate" title={row.path || ''}>
@@ -492,6 +528,7 @@ const IpBlockManagement = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">IP</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-700">Source</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">City / location</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Hits</th>
                   <th className="px-4 py-3 text-left font-semibold text-gray-700">Sessions</th>
@@ -503,7 +540,7 @@ const IpBlockManagement = () => {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-10 text-center text-gray-500">
                       No visitor IPs found for this period. Traffic must be tracked first (page hits).
                     </td>
                   </tr>
@@ -521,6 +558,9 @@ const IpBlockManagement = () => {
                           <BuyerBadge row={row} />
                         </div>
                         <BuyerDetails row={row} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <ChannelBadge channel={row.traffic_channel} medium={row.utm_medium} />
                       </td>
                       <td className="px-4 py-3">{locationLabel(row)}</td>
                       <td className="px-4 py-3">{row.hits}</td>

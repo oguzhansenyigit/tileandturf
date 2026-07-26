@@ -2,6 +2,7 @@
  * Site analytics: presence, page/product hits, funnel events.
  */
 import axios from 'axios'
+import { captureFirstTouchAttribution, getAttributionPayload } from './attribution'
 
 const SESSION_KEY = 'tt_analytics_sid'
 
@@ -32,6 +33,8 @@ export function trackPageView({ path, productId = null } = {}) {
   const pathname = path || (typeof window !== 'undefined' ? window.location.pathname : '/')
   if (pathname.startsWith('/admin')) return
 
+  captureFirstTouchAttribution()
+
   const pid = productId && Number(productId) > 0 ? Number(productId) : null
   if (pathname.startsWith('/product/') && pid) {
     setLiveProductId(pid)
@@ -56,6 +59,7 @@ export function trackPageView({ path, productId = null } = {}) {
     session_id: getAnalyticsSessionId(),
     path: pathname,
     referrer: typeof document !== 'undefined' ? document.referrer || '' : '',
+    attribution: getAttributionPayload(),
   }
   if (pid) payload.product_id = pid
 

@@ -96,8 +96,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($orderId !== false) {
         $sessionId = trim((string)($data['session_id'] ?? ''));
         require_once __DIR__ . '/analytics-helpers.php';
+        require_once __DIR__ . '/attribution-helpers.php';
         tileandturf_analytics_ensure_tables($conn);
+        tileandturf_attribution_ensure_tables($conn);
         $ip = $checkoutIp ?: tileandturf_client_ip();
+
+        // Persist first-touch channel on the order (paid vs organic).
+        $attrIn = is_array($data['attribution'] ?? null) ? $data['attribution'] : [];
+        if ($sessionId !== '') {
+            tileandturf_attribution_save_first_touch($conn, $sessionId, $attrIn);
+            $storedAttr = tileandturf_attribution_for_session($conn, $sessionId);
+        } else {
+            $storedAttr = null;
+        }
+        if (!$storedAttr && $attrIn) {
+            $storedAttr = tileandturf_attribution_normalize_payload($attrIn);
+        }
+        if (is_array($storedAttr) && !empty($storedAttr['channel'])) {
+            @$conn->query(
+                "UPDATE orders SET
+                    traffic_channel = '" . $conn->real_escape_string((string) $storedAttr['channel']) . "',
+                    utm_source = '" . $conn->real_escape_string((string) ($storedAttr['utm_source'] ?? '')) . "',
+                    utm_medium = '" . $conn->real_escape_string((string) ($storedAttr['utm_medium'] ?? '')) . "',
+                    utm_campaign = '" . $conn->real_escape_string((string) ($storedAttr['utm_campaign'] ?? '')) . "',
+                    gclid = '" . $conn->real_escape_string((string) ($storedAttr['gclid'] ?? '')) . "',
+                    landing_path = '" . $conn->real_escape_string((string) ($storedAttr['landing_path'] ?? '')) . "',
+                    attribution_referrer = '" . $conn->real_escape_string((string) ($storedAttr['referrer'] ?? '')) . "'
+                 WHERE id = " . intval($orderId)
+            );
+        }
+
         if ($sessionId !== '') {
             tileandturf_funnel_record(
                 $conn,

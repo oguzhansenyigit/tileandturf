@@ -4,6 +4,7 @@ import axios from 'axios'
 import { useCart } from '../context/CartContext'
 import ShippingCalculator from '../components/ShippingCalculator'
 import { getAnalyticsSessionId, trackFunnelEvent } from '../utils/siteAnalytics'
+import { getAttributionPayload } from '../utils/attribution'
 import { saveCartLead } from '../utils/saveCartLead'
 
 const Checkout = () => {
@@ -194,6 +195,7 @@ const Checkout = () => {
         total: getCartTotal(),
         status: 'pending',
         session_id: getAnalyticsSessionId(),
+        attribution: getAttributionPayload(),
       }
 
       const response = await axios.post('/api/orders.php', orderData)

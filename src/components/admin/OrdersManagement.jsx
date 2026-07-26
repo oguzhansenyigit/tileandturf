@@ -550,6 +550,7 @@ const OrdersManagement = () => {
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Order #</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Customer</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Source</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Total</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Date</th>
@@ -588,6 +589,31 @@ const OrdersManagement = () => {
                             <span className="block text-xs text-gray-500 truncate max-w-[160px]">
                               {order.email}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {order.traffic_channel ? (
+                              <span
+                                className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                  order.traffic_channel === 'paid'
+                                    ? 'bg-violet-100 text-violet-900'
+                                    : order.traffic_channel === 'organic'
+                                      ? 'bg-emerald-100 text-emerald-900'
+                                      : 'bg-gray-100 text-gray-700'
+                                }`}
+                                title={[order.utm_source, order.utm_medium, order.utm_campaign]
+                                  .filter(Boolean)
+                                  .join(' / ')}
+                              >
+                                {order.traffic_channel === 'paid'
+                                  ? 'Paid'
+                                  : order.traffic_channel === 'organic'
+                                    ? 'Organic'
+                                    : order.traffic_channel}
+                                {order.utm_medium ? ` · ${order.utm_medium}` : ''}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-sm font-semibold">{money(order.total)}</td>
                           <td className="px-4 py-3 text-sm">

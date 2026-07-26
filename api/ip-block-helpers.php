@@ -451,13 +451,23 @@ function tileandturf_recent_buyer_orders($conn, $minutes = 60) {
             'ip' => tileandturf_normalize_ip($row['ip_address'] ?? ''),
             'ip_source' => tileandturf_normalize_ip($row['ip_address'] ?? '') !== '' ? 'order' : 'none',
             'ip_candidates' => [],
+            'traffic_channel' => (string) ($row['traffic_channel'] ?? ''),
+            'utm_source' => (string) ($row['utm_source'] ?? ''),
+            'utm_medium' => (string) ($row['utm_medium'] ?? ''),
+            'utm_campaign' => (string) ($row['utm_campaign'] ?? ''),
         ];
     };
 
     $colCheck = @$conn->query("SHOW COLUMNS FROM orders LIKE 'ip_address'");
+    $channelCol = @$conn->query("SHOW COLUMNS FROM orders LIKE 'traffic_channel'");
+    $channelSelect = ($channelCol && $channelCol->num_rows > 0)
+        ? ', traffic_channel, utm_source, utm_medium, utm_campaign'
+        : ', NULL AS traffic_channel, NULL AS utm_source, NULL AS utm_medium, NULL AS utm_campaign';
+
     if ($colCheck && $colCheck->num_rows > 0) {
         $res = @$conn->query(
             "SELECT id AS order_id, order_number, first_name, last_name, email, total, created_at, ip_address
+                    {$channelSelect}
              FROM orders
              WHERE created_at >= DATE_SUB(NOW(), INTERVAL {$minutes} MINUTE)
              ORDER BY created_at DESC
@@ -471,6 +481,7 @@ function tileandturf_recent_buyer_orders($conn, $minutes = 60) {
     } else {
         $res = @$conn->query(
             "SELECT id AS order_id, order_number, first_name, last_name, email, total, created_at, NULL AS ip_address
+                    {$channelSelect}
              FROM orders
              WHERE created_at >= DATE_SUB(NOW(), INTERVAL {$minutes} MINUTE)
              ORDER BY created_at DESC
@@ -484,6 +495,8 @@ function tileandturf_recent_buyer_orders($conn, $minutes = 60) {
     }
 
     $hasIpCol = $colCheck && $colCheck->num_rows > 0;
+    require_once __DIR__ . '/attribution-helpers.php';
+    tileandturf_attribution_ensure_tables($conn);
 
     foreach ($rows as &$r) {
         $detail = tileandturf_resolve_order_ip_detail(
@@ -495,6 +508,22 @@ function tileandturf_recent_buyer_orders($conn, $minutes = 60) {
         $r['ip'] = $detail['ip'] ?? '';
         $r['ip_source'] = $detail['source'] ?? 'none';
         $r['ip_candidates'] = $detail['candidates'] ?? [];
+
+        if (empty($r['traffic_channel'])) {
+            $fe = @$conn->query(
+                'SELECT session_id FROM funnel_events WHERE order_id = ' . intval($r['order_id']) .
+                " AND session_id IS NOT NULL AND TRIM(session_id) != '' ORDER BY id DESC LIMIT 1"
+            );
+            if ($fe && ($ferow = $fe->fetch_assoc())) {
+                $attr = tileandturf_attribution_for_session($conn, $ferow['session_id'] ?? '');
+                if ($attr) {
+                    $r['traffic_channel'] = (string) ($attr['channel'] ?? '');
+                    $r['utm_source'] = (string) ($attr['utm_source'] ?? '');
+                    $r['utm_medium'] = (string) ($attr['utm_medium'] ?? '');
+                    $r['utm_campaign'] = (string) ($attr['utm_campaign'] ?? '');
+                }
+            }
+        }
 
         // Only hard-backfill confident matches onto the order row.
         if (

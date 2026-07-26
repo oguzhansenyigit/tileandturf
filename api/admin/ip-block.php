@@ -43,7 +43,34 @@ if ($method === 'GET') {
         $buyerMap = tileandturf_buyer_stats_by_ip($conn, $days);
         $recentOrders = tileandturf_recent_buyer_orders($conn, 60);
 
-        $attachBuyer = function (array $row) use ($buyerMap) {
+        require_once __DIR__ . '/../attribution-helpers.php';
+        tileandturf_attribution_ensure_tables($conn);
+
+        $channelByIp = [];
+        $chRes = @$conn->query(
+            "SELECT ph.ip_address,
+                    SUBSTRING_INDEX(GROUP_CONCAT(va.channel ORDER BY ph.created_at DESC SEPARATOR '|||'), '|||', 1) AS channel,
+                    SUBSTRING_INDEX(GROUP_CONCAT(IFNULL(va.utm_medium, '') ORDER BY ph.created_at DESC SEPARATOR '|||'), '|||', 1) AS utm_medium
+             FROM page_hits ph
+             INNER JOIN visitor_attribution va ON BINARY va.session_id = BINARY ph.session_id
+             WHERE ph.ip_address IS NOT NULL AND TRIM(ph.ip_address) != ''
+               AND ph.created_at >= DATE_SUB(NOW(), INTERVAL {$days} DAY)
+             GROUP BY ph.ip_address"
+        );
+        if ($chRes) {
+            while ($crow = $chRes->fetch_assoc()) {
+                $cip = (string) ($crow['ip_address'] ?? '');
+                if ($cip === '') {
+                    continue;
+                }
+                $channelByIp[$cip] = [
+                    'traffic_channel' => (string) ($crow['channel'] ?? ''),
+                    'utm_medium' => (string) ($crow['utm_medium'] ?? ''),
+                ];
+            }
+        }
+
+        $attachBuyer = function (array $row) use ($buyerMap, $channelByIp) {
             $ip = (string) ($row['ip'] ?? '');
             $buyer = $buyerMap[$ip] ?? null;
             $row['is_buyer'] = $buyer !== null;
@@ -53,6 +80,9 @@ if ($method === 'GET') {
             $row['last_order_number'] = $buyer['last_order_number'] ?? '';
             $row['buyer_name'] = $buyer['buyer_name'] ?? '';
             $row['buyer_email'] = $buyer['buyer_email'] ?? '';
+            $ch = $channelByIp[$ip] ?? null;
+            $row['traffic_channel'] = $row['traffic_channel'] ?? ($ch['traffic_channel'] ?? '');
+            $row['utm_medium'] = $row['utm_medium'] ?? ($ch['utm_medium'] ?? '');
             return $row;
         };
 
@@ -154,8 +184,11 @@ if ($method === 'GET') {
                     MAX(NULLIF(av.country, '')) AS country,
                     SUBSTRING_INDEX(GROUP_CONCAT(av.path ORDER BY av.last_activity DESC SEPARATOR '|||'), '|||', 1) AS path,
                     MAX(av.last_activity) AS last_activity,
-                    COUNT(*) AS sessions
+                    COUNT(*) AS sessions,
+                    SUBSTRING_INDEX(GROUP_CONCAT(IFNULL(va.channel, '') ORDER BY av.last_activity DESC SEPARATOR '|||'), '|||', 1) AS traffic_channel,
+                    SUBSTRING_INDEX(GROUP_CONCAT(IFNULL(va.utm_medium, '') ORDER BY av.last_activity DESC SEPARATOR '|||'), '|||', 1) AS utm_medium
              FROM active_visitors av
+             LEFT JOIN visitor_attribution va ON BINARY va.session_id = BINARY av.session_id
              WHERE av.last_activity >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
                AND av.ip_address IS NOT NULL
                AND TRIM(av.ip_address) != ''
@@ -175,6 +208,8 @@ if ($method === 'GET') {
                     'last_activity' => $row['last_activity'] ?? null,
                     'sessions' => intval($row['sessions'] ?? 0),
                     'blocked' => isset($blockedMap[$ip]),
+                    'traffic_channel' => (string) ($row['traffic_channel'] ?? ''),
+                    'utm_medium' => (string) ($row['utm_medium'] ?? ''),
                 ]);
             }
         }

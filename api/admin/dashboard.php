@@ -4,6 +4,7 @@
  */
 require_once '../config.php';
 require_once __DIR__ . '/../analytics-helpers.php';
+require_once __DIR__ . '/../attribution-helpers.php';
 
 tileandturf_require_admin();
 header('Content-Type: application/json');
@@ -11,6 +12,9 @@ header('Content-Type: application/json');
 try {
     if (function_exists('tileandturf_analytics_ensure_tables')) {
         tileandturf_analytics_ensure_tables($conn);
+    }
+    if (function_exists('tileandturf_attribution_ensure_tables')) {
+        tileandturf_attribution_ensure_tables($conn);
     }
 
     $today = date('Y-m-d');
