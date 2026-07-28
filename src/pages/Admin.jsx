@@ -17,6 +17,7 @@ import CategoryManagement from '../components/admin/CategoryManagement'
 import PriceSync from '../components/admin/PriceSync'
 import TitleNormalizer from '../components/admin/TitleNormalizer'
 import IpBlockManagement from '../components/admin/IpBlockManagement'
+import OrganicTrafficReport from '../components/admin/OrganicTrafficReport'
 import OrderNotifications from '../components/admin/OrderNotifications'
 
 const Admin = () => {
@@ -144,6 +145,7 @@ const Admin = () => {
     { id: 'price-sync', label: 'Price Sync', icon: '💲' },
     { id: 'title-fixer', label: 'Title Fixer', icon: '🔤' },
     { id: 'ip-block', label: 'Visitors / IP Block', icon: '🛡️' },
+    { id: 'organic-report', label: 'Organic & Direct', icon: '🌱' },
   ]
 
   return (
@@ -224,6 +226,7 @@ const Admin = () => {
           {activeSection === 'price-sync' && <PriceSync />}
           {activeSection === 'title-fixer' && <TitleNormalizer />}
           {activeSection === 'ip-block' && <IpBlockManagement />}
+          {activeSection === 'organic-report' && <OrganicTrafficReport />}
         </main>
       </div>
     </div>
